@@ -1,16 +1,15 @@
 #include <vector>
-#include <Eigen/Core>
 #include <Histogram.h>
 
 template <typename FeatureType>
 class Node
 {
 public:
-
-    Node(const FeatureType& f, double t, bool l)
+    Node(const FeatureType& f, double t, bool l, const Histogram& h)
         : feature(f),
           threshold(t),
-          isLeaf(l)
+          is_leaf(l),
+          hist(h)
     {
 
     }
@@ -26,23 +25,30 @@ public:
         hist.accumulate(label);
     }
 
+    void setLeftChild(Node* child)
+    {
+        left = child
+    }
+
+    void setRightChild(Node* child)
+    {
+        right = child
+    }
+
 private:
     const FeatureType& feature;
     const double threshold;
-    bool isLeaf;
+    bool is_leaf;
     Histogram hist;
-    Node *left;
-    Node *right;
+    Node* left;
+    Node* right;
 };
 
 template <typename FeatureType>
 class DecisionTree
 {
 public:
-    typedef Eigen::MatrixXf MatrixType;
-    typedef Eigen::VectorXf VectorType;
-    typedef int LabelType;
-    typedef Eigen::VectorXi LabelVector;
+
 
     DecisionTree(int n_classes_)
         : n_classes(n_classes_)
@@ -54,8 +60,8 @@ public:
 
     }
 
-    template <typename DataVector, typename LabelVector>
-    void train(const DataVector& X, const LabelVector& y)
+    template <typename D>
+    void train(const std::vector<D>& X, const std::vector<int>& y)
     {
         root = buildTree(X, y, 0, y.size());
     }
@@ -63,10 +69,18 @@ public:
 
 private:
 
-    template <typename DataVector, typename LabelVector>
-    Node* buildTree(const DataVector& X, const LabelVector& y, int from, int to)
+    template <typename D>
+    Node* buildTree(const std::vector<D>& X, const std::vector<int>& y, int from, int to)
     {
-
+        //find best feature and thres
+        Node* parent = new Node();
+        int thres_index;
+        //recurese on left and right child
+        Node* l_child = buildTree(X, y, from, thres_index);
+        Node* r_child = buildTree(X, y, thres_index, to);
+        parent->setLeftChild(l_child);
+        parent->setRightChild(r_child);
+        return parent;
     }
 
     const int nClasses;
