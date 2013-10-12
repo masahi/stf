@@ -1,2 +1,7 @@
 *.user
 build
+stf.config
+stf.creator
+stf.creator.user
+stf.files
+stf.includes

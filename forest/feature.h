@@ -1,12 +1,21 @@
 #ifndef FEATURE_H
 #define FEATURE_H
 
+#include <util.h>
+
 class IdentityFeature
 {
 public:
 
+    static int FEATURE_DIM;
+
+    static IdentityFeature getRandom()
+    {
+        return IdentityFeature(randInt(0, FEATURE_DIM));
+    }
+
     IdentityFeature(int index_)
-        :index(index_)
+        : index(index_)
     {
     }
 

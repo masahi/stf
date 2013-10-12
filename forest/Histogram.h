@@ -2,10 +2,12 @@
 #define HISTOGRAM_H
 
 #include <vector>
+#include <cassert>
 
 class Histogram
 {
 public:
+
 
     int getNumberOfSamples() const
     {
@@ -40,9 +42,15 @@ public:
         ++nSamples;
     }
 
+    void clear()
+    {
+        nSamples = 0;
+        bins.clear();
+    }
+
 private:
     const int nBins;
-    const int nSamples;
+    int nSamples;
     std::vector<int> bins;
 };
 

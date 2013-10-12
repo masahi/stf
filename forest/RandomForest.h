@@ -1,5 +1,4 @@
 #include <vector>
-#include <boost/foreach.hpp>
 #include <DecisionTree.h>
 
 template <typename FeatureType>
@@ -19,8 +18,19 @@ public:
 
     }
 
+    template <typename D>
+    void train(const std::vector<D>& X, const std::vector<int>& y)
+    {
+
+        for(auto tree: trees)
+        {
+            std::vector<int> indices = random_samples(X.size());
+            tree->train(X, y, indices);
+        }
+    }
+
 private:
     const int n_classes;
     const int n_trees;
-    std::vector<DecisionTree<FeatureType> *> trees;
+    std::vector<DecisionTree<FeatureType>*> trees;
 };
