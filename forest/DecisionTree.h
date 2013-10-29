@@ -67,7 +67,9 @@ public:
     typedef typename Node<FeatureType>::NodePtr NodePtr;
 
     DecisionTree(int n_classes_)
-        : n_classes(n_classes_)
+        : n_classes(n_classes_),
+          n_candidate_feat(100),
+          n_thres_per_feat(100)
     {
     }
 
@@ -103,7 +105,7 @@ private:
         for(int i = 0; i < n_candidate_feat; ++i)
         {
             FeatureType f = FeatureType::getRandom();
-            for(int j = 0; j < to; ++j)
+            for(int j = from; j < to; ++j)
             {
                 response[j] = f(X[indices[j]]);
             }

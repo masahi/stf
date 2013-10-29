@@ -36,4 +36,10 @@ int partition(std::vector<int>& indices, int from, int to, const std::vector<dou
     return response[i] >= threshold ? i : i+1;
 }
 
+std::vector<int> randomSamples(int m, int n)
+{
+    std::vector<int> samples(n);
+    return samples;
+}
+
 #endif // UTIL_H
