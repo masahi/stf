@@ -13,7 +13,9 @@ public:
     typedef std::unique_ptr<Node<FeatureType>> NodePtr;
 
     Node(const Histogram& h)
-        : hist(h),
+        : feature(FeatureType::getRandom()),
+          threshold(0),
+          hist(h),
           is_leaf(true)
     {
 
@@ -39,14 +41,14 @@ public:
         hist.accumulate(label);
     }
 
-    void setLeftChild(NodePtr child)
+    void setLeftChild(NodePtr& child)
     {
-        left = child;
+        left = std::move(child);
     }
 
-    void setRightChild(NodePtr child)
+    void setRightChild(NodePtr& child)
     {
-        right = child;
+        right = std::move(child);
     }
 
 
@@ -69,13 +71,10 @@ public:
     DecisionTree(int n_classes_)
         : n_classes(n_classes_),
           n_candidate_feat(100),
-          n_thres_per_feat(100)
+          n_thres_per_feat(100),
+          n_nodes(0),
+          root(nullptr)
     {
-    }
-
-    ~DecisionTree()
-    {
-
     }
 
     template <typename D>
@@ -97,19 +96,22 @@ private:
         FeatureType best_feature;
         double best_thres;
 
-        Histogram parent_hist;
+        Histogram parent_hist(n_classes);
         for(int i = from; i < to; ++i)
         {
             parent_hist.accumulate(y[indices[from]]);
         }
+
         for(int i = 0; i < n_candidate_feat; ++i)
         {
             FeatureType f = FeatureType::getRandom();
+//            return NodePtr(new Node<FeatureType>(parent_hist));
             for(int j = from; j < to; ++j)
             {
+                assert(j < n_data);
                 response[j] = f(X[indices[j]]);
             }
-
+           // return NodePtr(new Node<FeatureType>(parent_hist));
             std::vector<double> threshold(n_thres_per_feat+1);
             int n_threshold;
             if(n_data > n_thres_per_feat)
@@ -139,14 +141,14 @@ private:
                 threshold[j] = threshold[j] + rand() * (threshold[j+1] - threshold[j]);
             }
 
-            std::vector<Histogram> partition_statistics(n_threshold);
+            std::vector<Histogram> partition_statistics(n_threshold, Histogram(n_classes));
             for(int j = from; j < to; ++j)
             {
                 int t = std::upper_bound(threshold.begin(), threshold.end(), response[j]) - threshold.begin();
                 partition_statistics[t].accumulate(y[indices[j]]);
             }
 
-            Histogram left_statistics, right_statistics;
+            Histogram left_statistics(n_classes), right_statistics(n_classes);
             for(int t = 0; t < n_threshold; ++t)
             {
                 left_statistics.clear();
@@ -191,17 +193,16 @@ private:
         NodePtr parent(new Node<FeatureType>(best_feature, best_gain, parent_hist));
         int thres_index = partition(indices, from, to, response, best_thres);
         //recurese on left and right child
-        NodePtr l_child = buildTree(X, y, from, thres_index);
-        NodePtr r_child = buildTree(X, y, thres_index, to);
+        NodePtr l_child = buildTree(X, y, indices, from, thres_index);
+        NodePtr r_child = buildTree(X, y, indices, thres_index, to);
         parent->setLeftChild(l_child);
         parent->setRightChild(r_child);
         return parent;
     }
 
-
     const int n_classes;
-    const int n_nodes;
     const int n_candidate_feat;
     const int n_thres_per_feat;
+    int n_nodes;
     NodePtr root;
 };

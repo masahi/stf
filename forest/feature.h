@@ -14,19 +14,37 @@ public:
         return IdentityFeature(randInt(0, FEATURE_DIM));
     }
 
+    IdentityFeature()
+        : index(-1)
+    {
+    }
+
     IdentityFeature(int index_)
         : index(index_)
     {
     }
 
+    IdentityFeature& operator=(const IdentityFeature& other)
+    {
+        index = other.getIndex();
+        return *this;
+    }
+
     template <typename T>
     double operator()(const std::vector<T>& v) const
     {
+        assert(index >= 0);
+        assert(index < FEATURE_DIM);
         return v[index];
     }
 
+    int getIndex() const
+    {
+        return index;
+    }
+
 private:
-    const int index;
+    int index;
 };
 
 #endif // FEATURE_H

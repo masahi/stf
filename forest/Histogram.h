@@ -8,28 +8,55 @@ class Histogram
 {
 public:
 
+    Histogram(int n_classes)
+        : n_bins(n_classes),
+          n_samples(0),
+          bins(n_classes,0)
+    {
+
+    }
+
+    Histogram(const Histogram& other)
+        : n_bins(other.getNumberOfBins()),
+          n_samples(other.getNumberOfSamples()),
+          bins(other.getBins())
+    {
+    }
+
+    Histogram& operator=(const Histogram& other)
+    {
+        n_samples = other.getNumberOfSamples();
+        n_bins = other.getNumberOfBins();
+        bins = other.getBins();
+        return *this;
+    }
 
     int getNumberOfSamples() const
     {
-        return nSamples;
+        return n_samples;
     }
 
     int getNumberOfBins() const
     {
-        return nBins;
+        return n_bins;
+    }
+
+    std::vector<int> getBins() const
+    {
+        return bins;
     }
 
     int getCounts(int i) const
     {
-        assert(i < nBins);
+        assert(i < n_bins);
         return bins[i];
     }
 
     void accumulate(const Histogram& other)
     {
-        assert(nBins == other.getNumberOfBins());
-        nSamples += other.getNumberOfSamples();
-        for(int i = 0; i < nBins; ++i)
+        assert(bins.size() == other.getNumberOfBins());
+        n_samples += other.getNumberOfSamples();
+        for(int i = 0; i < n_bins; ++i)
         {
             bins[i] += other.getCounts(i);
         }
@@ -37,20 +64,20 @@ public:
 
     void accumulate(int label)
     {
-        assert(label < nBins);
+        assert(label < n_bins);
         ++bins[label];
-        ++nSamples;
+        ++n_samples;
     }
 
     void clear()
     {
-        nSamples = 0;
-        bins.clear();
+        n_samples = 0;
+        std::fill(bins.begin(), bins.end(), 0);
     }
 
 private:
-    const int nBins;
-    int nSamples;
+    int n_bins;
+    int n_samples;
     std::vector<int> bins;
 };
 
