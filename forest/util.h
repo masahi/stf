@@ -50,7 +50,7 @@ double computeInfomationGain(const Histogram& parent, const Histogram& left, con
 int partition(std::vector<int>& indices, int from, int to, std::vector<double>& response, double threshold)
 {
     assert(from < to);
-    int i = from;
+ int i = from;
     int j = to-1;
 
     while(i <= j)
