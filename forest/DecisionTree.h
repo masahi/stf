@@ -9,7 +9,6 @@ template <typename FeatureType>
 class Node
 {
 public:
-
     typedef std::unique_ptr<Node<FeatureType>> NodePtr;
 
     Node(const Histogram& h)
@@ -99,19 +98,18 @@ private:
         Histogram parent_hist(n_classes);
         for(int i = from; i < to; ++i)
         {
-            parent_hist.accumulate(y[indices[from]]);
+            parent_hist.accumulate(y[indices[i]]);
         }
 
         for(int i = 0; i < n_candidate_feat; ++i)
         {
             FeatureType f = FeatureType::getRandom();
-//            return NodePtr(new Node<FeatureType>(parent_hist));
             for(int j = from; j < to; ++j)
             {
                 assert(j < n_data);
+                assert(X[indices[j]].size() == FeatureType::FEATURE_DIM);
                 response[j] = f(X[indices[j]]);
             }
-           // return NodePtr(new Node<FeatureType>(parent_hist));
             std::vector<double> threshold(n_thres_per_feat+1);
             int n_threshold;
             if(n_data > n_thres_per_feat)
@@ -128,7 +126,7 @@ private:
                 n_threshold = n_data;
             }
 
-            std::sort(threshold.begin(), threshold.end());
+            std::sort(threshold.begin(), threshold.begin()+n_threshold);
 
             if(threshold[0] == threshold[n_threshold-1])
             {
@@ -138,13 +136,14 @@ private:
 
             for(int j = 0; j < n_threshold; ++j)
             {
-                threshold[j] = threshold[j] + rand() * (threshold[j+1] - threshold[j]);
+                threshold[j] = threshold[j] + (double)rand()/RAND_MAX * (threshold[j+1] - threshold[j]);
             }
 
-            std::vector<Histogram> partition_statistics(n_threshold, Histogram(n_classes));
+            std::vector<Histogram> partition_statistics(n_threshold+1, Histogram(n_classes));
             for(int j = from; j < to; ++j)
             {
-                int t = std::upper_bound(threshold.begin(), threshold.end(), response[j]) - threshold.begin();
+                int t = std::upper_bound(threshold.begin(), threshold.begin()+n_threshold, response[j]) - threshold.begin();
+               // if(t == n_threshold) --t;
                 partition_statistics[t].accumulate(y[indices[j]]);
             }
 
@@ -167,16 +166,19 @@ private:
                 }
 
 
-            double gain = computeInfomationGain(parent_hist, left_statistics, right_statistics);
-            if(gain > best_gain)
-            {
-                best_gain = gain;
-                best_feature = f;
-                best_thres = t;
-            }
+                double gain = computeInfomationGain(parent_hist, left_statistics, right_statistics);
+                if(gain > best_gain)
+                {
+                    best_gain = gain;
+                    best_feature = f;
+                    best_thres = threshold[t];
+                }
             }
 
+
+
         }
+
 
         if(best_gain <= 0.01)
         {
