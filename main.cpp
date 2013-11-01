@@ -3,6 +3,7 @@
 #include <memory>
 #include <cstdlib>
 #include <iostream>
+#include <util.h>
 
 using namespace std;
 
@@ -10,20 +11,18 @@ int IdentityFeature::FEATURE_DIM;
 
 int main(int argc, char *argv[])
 {
-    vector<vector<double>> X(10,vector<double>(5, 0));
-    vector<int> y(10,0);
+    vector<vector<double>> X;
+    vector<int> y;
 
-    for(int i = 0; i < 10; ++i)
-    {
-        for (int j = 0; j < 5; ++j) {
-            X[i][j] = (double)rand() / RAND_MAX;
-        }
-       if(i%2) y[i] = 1;
-    }
-    const int n_classes = 2;
-    IdentityFeature::FEATURE_DIM = 5;
+    const string file(argv[1]);
+    int feature_dim = boost::lexical_cast<int>(argv[2]);
+    tie(X,y) = readLIBSVM<double>(file,feature_dim);
+
+    const int n_classes = countUnique(y);
+
+    IdentityFeature::FEATURE_DIM = feature_dim;
     RandomForest<IdentityFeature> forest(n_classes);
-    forest.train(X, y);
+    //forest.train(X, y);
 
     return 0;
 }

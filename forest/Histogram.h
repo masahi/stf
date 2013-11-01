@@ -69,6 +69,24 @@ public:
         ++n_samples;
     }
 
+
+    void decrease(const Histogram& other)
+    {
+        assert(bins.size() == other.getNumberOfBins());
+        n_samples -= other.getNumberOfSamples();
+        for(int i = 0; i < n_bins; ++i)
+        {
+            bins[i] -= other.getCounts(i);
+        }
+    }
+
+    void decrease(int label)
+    {
+        assert(label < n_bins);
+        --bins[label];
+        --n_samples;
+    }
+
     void clear()
     {
         n_samples = 0;

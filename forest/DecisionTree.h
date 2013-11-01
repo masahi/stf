@@ -4,6 +4,7 @@
 #include <memory>
 #include <Histogram.h>
 #include <util.h>
+#include <limits>
 
 template <typename FeatureType>
 class Node
@@ -91,7 +92,7 @@ private:
         const int n_data = to - from;
         std::vector<double> response(n_data);
 
-        double best_gain = -1;
+        double best_gain;
         FeatureType best_feature;
         double best_thres;
 
@@ -110,7 +111,7 @@ private:
                 assert(X[indices[j]].size() == FeatureType::FEATURE_DIM);
                 response[j] = f(X[indices[j]]);
             }
-            std::vector<double> threshold(n_thres_per_feat+1);
+            std::vector<double> threshold(n_thres_per_feat+1,std::numeric_limits<double>::max());
             int n_threshold;
             if(n_data > n_thres_per_feat)
             {
@@ -123,7 +124,7 @@ private:
             else
             {
                 std::copy(&response[from], &response[to], threshold.begin());
-                n_threshold = n_data;
+                n_threshold = n_data - 1;
             }
 
             std::sort(threshold.begin(), threshold.begin()+n_threshold);
@@ -148,23 +149,25 @@ private:
             }
 
             Histogram left_statistics(n_classes), right_statistics(n_classes);
-            for(int t = 0; t < n_threshold; ++t)
+            left_statistics.accumulate(partition_statistics[0]);
+
+            for (int t = 1; t < n_threshold+1; ++t)
             {
-                left_statistics.clear();
-                right_statistics.clear();
+               right_statistics.accumulate(partition_statistics[t]);
+            }
 
-                for(int p = 0; p < n_threshold+1; ++p)
-                {
-                    if(p <= t)
-                    {
-                        left_statistics.accumulate(partition_statistics[p]);
-                    }
-                    else
-                    {
-                        right_statistics.accumulate(partition_statistics[p]);
-                    }
-                }
+            double gain = computeInfomationGain(parent_hist, left_statistics, right_statistics);
+            if(gain > best_gain)
+            {
+                best_gain = gain;
+                best_feature = f;
+                best_thres = threshold[0];
+            }
 
+            for(int t = 1; t < n_threshold; ++t)
+            {
+                left_statistics.accumulate(partition_statistics[t]);
+                right_statistics.decrease(partition_statistics[t]);
 
                 double gain = computeInfomationGain(parent_hist, left_statistics, right_statistics);
                 if(gain > best_gain)
@@ -179,7 +182,6 @@ private:
 
         }
 
-
         if(best_gain <= 0.01)
         {
             std::cout << "Gain zero!!\n";
@@ -193,7 +195,8 @@ private:
         }
 
         NodePtr parent(new Node<FeatureType>(best_feature, best_gain, parent_hist));
-        int thres_index = partition(indices, from, to, response, best_thres);
+        int thres_index = std::partition(indices.begin(), indices.end(), [&](int index){return response[index] < best_thres;}) - indices.begin();
+
         //recurese on left and right child
         NodePtr l_child = buildTree(X, y, indices, from, thres_index);
         NodePtr r_child = buildTree(X, y, indices, thres_index, to);

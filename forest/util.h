@@ -3,8 +3,17 @@
 
 #include <random>
 #include <algorithm>
+#include <fstream>
+#include <iostream>
+#include <string>
 #include <Histogram.h>
+#include <cassert>
 #include <vector>
+#include <set>
+#include <tuple>
+#include <sstream>
+#include <boost/algorithm/string.hpp>
+#include <boost/lexical_cast.hpp>
 
 int randInt(int a, int b)
 {
@@ -47,25 +56,6 @@ double computeInfomationGain(const Histogram& parent, const Histogram& left, con
     return gain;
 }
 
-int partition(std::vector<int>& indices, int from, int to, std::vector<double>& response, double threshold)
-{
-    assert(from < to);
- int i = from;
-    int j = to-1;
-
-    while(i <= j)
-    {
-        if(response[i] >= threshold)
-        {
-            std::swap(indices[i], indices[j]);
-            std::swap(response[i], response[j]);
-            --j;
-        }
-        else ++i;
-    }
-
-    return response[i] >= threshold ? i : i+1;
-}
 
 std::vector<int> randomSamples(int m, int n)
 {
@@ -73,4 +63,52 @@ std::vector<int> randomSamples(int m, int n)
     return samples;
 }
 
+template<typename T>
+std::tuple<std::vector<std::vector<T>>,std::vector<int>> readLIBSVM(const std::string& file, int dim)
+{
+    std::ifstream ifs(file.c_str());
+    std::string buf;
+    std::vector<std::string> line;
+    std::vector<std::vector<T>> features;
+    std::vector<int> label;
+    std::vector<T> feature(dim,0);
+
+    while (std::getline(ifs, buf))
+    {
+       line.clear();
+       boost::split(line, buf, boost::is_any_of(" \n\t"));
+       int c = boost::lexical_cast<int>(line[0]);
+       label.push_back(c);
+       for (int i = 1; i < line.size(); ++i)
+       {
+         std::istringstream is(line[i]);
+         int f;
+         T v;
+         char colon;
+
+         is >> f >> colon >> v;
+         assert(f <= dim);
+
+         feature[f-1] = v;
+       }
+
+       features.push_back(feature);
+       }
+
+    auto iter = std::find(label.begin(), label.end(), 0);
+    if (iter == label.end())
+    {
+       std::transform(label.begin(), label.end(), label.begin(), [](int i){return i-1;});
+    }
+    std::replace(label.begin(), label.end(),-2,1);
+
+    return make_tuple(features, label);
+}
+
+template<typename T>
+int countUnique(const std::vector<T>& vec)
+{
+   std::set<T> s(vec.begin(), vec.end());
+   return s.size();
+}
 #endif // UTIL_H
