@@ -24,6 +24,11 @@ public:
     {
     }
 
+    IdentityFeature(const IdentityFeature& other)
+        : index(other.getIndex())
+    {
+    }
+
     IdentityFeature& operator=(const IdentityFeature& other)
     {
         index = other.getIndex();

@@ -110,5 +110,27 @@ int countUnique(const std::vector<T>& vec)
 {
    std::set<T> s(vec.begin(), vec.end());
    return s.size();
+
+}
+
+
+int partitionByResponse(std::vector<int>& indices, int from, int to, std::vector<double>& response, double threshold)
+{
+    assert(from < to);
+    int i = from;
+    int j = to-1;
+
+    while(i <= j)
+    {
+        if(response[i-from] >= threshold)
+        {
+            std::swap(indices[i], indices[j]);
+            std::swap(response[i-from], response[j-from]);
+            --j;
+        }
+        else ++i;
+    }
+
+    return response[i-from] >= threshold ? i : i+1;
 }
 #endif // UTIL_H

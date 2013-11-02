@@ -10,15 +10,20 @@ template <typename FeatureType>
 class Node
 {
 public:
+    typedef Node<FeatureType>* NodeRawPtr;
     typedef std::unique_ptr<Node<FeatureType>> NodePtr;
 
     Node(const Histogram& h)
         : feature(FeatureType::getRandom()),
           threshold(0),
           hist(h),
+          dist(hist.getNumberOfBins(), 0),
           is_leaf(true)
     {
+        const int n_samples = hist.getNumberOfSamples();
 
+        std::vector<int> bins = hist.getBins();
+        std::transform(bins.begin(), bins.end(), dist.begin(), [](int count){ return static_cast<double>(count)/n_samples;});
     }
 
     Node(const FeatureType& f, double t,const Histogram& h)
@@ -27,9 +32,13 @@ public:
           hist(h),
           is_leaf(false)
     {
-
     }
 
+    Node& operator=(const Node& other)
+    {
+        feature(other.getFeature());
+        return *this;
+    }
     template <typename Data>
     double getFeatureResponse(Data v) const
     {
@@ -51,11 +60,18 @@ public:
         right = std::move(child);
     }
 
+    NodeRawPtr getLeftChild() const { return left.get();}
+    NodeRawPtr getRightChild() const { return right.get();}
+    double getThreshold() const { return threshold;}
+    FeatureType getFeature() const { return feature;}
+    std::vector<double> getDistribution() const { return dist;}
+    bool isLeaf() const { return is_leaf;}
 
 private:
-    const FeatureType& feature;
-    const double threshold;
+    FeatureType feature;
+    double threshold;
     Histogram hist;
+    std::vector<double> dist;
     bool is_leaf;
     NodePtr left;
     NodePtr right;
@@ -66,6 +82,7 @@ class DecisionTree
 {
 public:
 
+    typedef typename Node<FeatureType>::NodeRawPtr NodeRawPtr;
     typedef typename Node<FeatureType>::NodePtr NodePtr;
 
     DecisionTree(int n_classes_)
@@ -75,6 +92,7 @@ public:
           n_nodes(0),
           root(nullptr)
     {
+
     }
 
     template <typename D>
@@ -83,6 +101,19 @@ public:
         root = buildTree(X, y, indices, 0, y.size());
     }
 
+    template <typename D>
+    std::vector<double> predictDistribution(const D& x)
+    {
+        NodeRawPtr current_node = root.get();
+
+        while(!current_node->isLeaf())
+        {
+            double response = current_node->getFeatureResponse(x);
+            if(response < current_node->getThreshold()) current_node = current_node->getLeftChild();
+            else current_node = current_node->getRightChild();
+        }
+        return current_node->getDistribution();
+    }
 
 private:
 
@@ -90,7 +121,7 @@ private:
     NodePtr buildTree(const std::vector<D>& X, const std::vector<int>& y, std::vector<int>& indices, int from, int to)
     {
         const int n_data = to - from;
-        std::cout << from << "," << to << "," << n_data << std::endl;
+    //    std::cout << from << "," << to << "," << n_data << std::endl;
         std::vector<double> response(n_data);
 
         double best_gain = -1;
@@ -124,9 +155,8 @@ private:
         }
 
 
-
-
-
+        std::vector<double> threshold(n_thres_per_feat+1,std::numeric_limits<double>::max());
+        int n_threshold;
         for(int i = 0; i < n_candidate_feat; ++i)
         {
             FeatureType f = FeatureType::getRandom();
@@ -134,8 +164,6 @@ private:
             {
                 response[j-from] = f(X[indices[j]]);
             }
-            std::vector<double> threshold(n_thres_per_feat+1,std::numeric_limits<double>::max());
-            int n_threshold;
             if(n_data > n_thres_per_feat)
             {
                 for(int j = 0; j < n_thres_per_feat+1; ++j)
@@ -217,9 +245,12 @@ private:
             response[i-from] = best_feature(X[indices[i]]);
         }
 
-        std::cout << best_gain << std::endl;
+     //   std::cout << best_gain << std::endl;
         NodePtr parent(new Node<FeatureType>(best_feature, best_gain, parent_hist));
-        int thres_index = std::partition(indices.begin()+from, indices.begin()+to, [&](int index){return response[index] < best_thres;}) - indices.begin();
+
+        int index = 0;
+        int thres_index = std::partition(indices.begin()+from, indices.begin()+to, [&](int dummy){index++; return response[index-1] < best_thres;}) - indices.begin();//-from;
+     //   int thres_index = partitionByResponse(indices,from, to, response, best_thres);
 
         //recurese on left and right child
         NodePtr l_child = buildTree(X, y, indices, from, thres_index);
