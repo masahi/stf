@@ -47,7 +47,7 @@ double computeInfomationGain(const Histogram& parent, const Histogram& left, con
 
     for (int i = 0; i < n_classes; ++i) {
         if(left_prob[i] > 0) left_entoropy += -left_prob[i] * std::log2(left_prob[i]);
-        if(left_prob[i] > 0) right_entoropy += -right_prob[i] * std::log2(right_prob[i]);
+        if(right_prob[i] > 0) right_entoropy += -right_prob[i] * std::log2(right_prob[i]);
     }
 
     double gain = parent_entoropy - static_cast<double>(left.getNumberOfSamples()) / parent.getNumberOfSamples() * left_entoropy

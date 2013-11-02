@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
 
     IdentityFeature::FEATURE_DIM = feature_dim;
     RandomForest<IdentityFeature> forest(n_classes);
-    //forest.train(X, y);
+    forest.train(X, y);
 
     return 0;
 }

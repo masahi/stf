@@ -70,7 +70,7 @@ public:
 
     DecisionTree(int n_classes_)
         : n_classes(n_classes_),
-          n_candidate_feat(100),
+          n_candidate_feat(10),
           n_thres_per_feat(100),
           n_nodes(0),
           root(nullptr)
@@ -90,26 +90,49 @@ private:
     NodePtr buildTree(const std::vector<D>& X, const std::vector<int>& y, std::vector<int>& indices, int from, int to)
     {
         const int n_data = to - from;
+        std::cout << from << "," << to << "," << n_data << std::endl;
         std::vector<double> response(n_data);
 
-        double best_gain;
+        double best_gain = -1;
         FeatureType best_feature;
         double best_thres;
 
         Histogram parent_hist(n_classes);
         for(int i = from; i < to; ++i)
         {
-            parent_hist.accumulate(y[indices[i]]);
+            int l = y[indices[i]];
+            parent_hist.accumulate(l);
         }
+
+        for(int i = 0; i < n_classes; ++i)
+        {
+            if(parent_hist.getCounts(i) == n_data)
+            {
+
+            std::cout << "same labels!\n";
+            NodePtr leaf(new Node<FeatureType>(parent_hist));
+            return leaf;
+
+            }
+        }
+
+ if(n_data <=5 )
+        {
+            std::cout << "min sample reached.!!\n";
+            NodePtr leaf(new Node<FeatureType>(parent_hist));
+            return leaf;
+        }
+
+
+
+
 
         for(int i = 0; i < n_candidate_feat; ++i)
         {
             FeatureType f = FeatureType::getRandom();
             for(int j = from; j < to; ++j)
             {
-                assert(j < n_data);
-                assert(X[indices[j]].size() == FeatureType::FEATURE_DIM);
-                response[j] = f(X[indices[j]]);
+                response[j-from] = f(X[indices[j]]);
             }
             std::vector<double> threshold(n_thres_per_feat+1,std::numeric_limits<double>::max());
             int n_threshold;
@@ -117,13 +140,13 @@ private:
             {
                 for(int j = 0; j < n_thres_per_feat+1; ++j)
                 {
-                    threshold[j] = response[randInt(from, to)];
+                    threshold[j] = response[randInt(0, n_data)];
                     n_threshold = n_thres_per_feat;
                 }
             }
             else
             {
-                std::copy(&response[from], &response[to], threshold.begin());
+                std::copy(response.begin(), response.begin()+n_data, threshold.begin());
                 n_threshold = n_data - 1;
             }
 
@@ -143,8 +166,7 @@ private:
             std::vector<Histogram> partition_statistics(n_threshold+1, Histogram(n_classes));
             for(int j = from; j < to; ++j)
             {
-                int t = std::upper_bound(threshold.begin(), threshold.begin()+n_threshold, response[j]) - threshold.begin();
-               // if(t == n_threshold) --t;
+                int t = std::upper_bound(threshold.begin(), threshold.begin()+n_threshold, response[j-from]) - threshold.begin();
                 partition_statistics[t].accumulate(y[indices[j]]);
             }
 
@@ -169,7 +191,8 @@ private:
                 left_statistics.accumulate(partition_statistics[t]);
                 right_statistics.decrease(partition_statistics[t]);
 
-                double gain = computeInfomationGain(parent_hist, left_statistics, right_statistics);
+                gain = computeInfomationGain(parent_hist, left_statistics, right_statistics);
+               // std::cout << t <<"," << gain << std::endl;
                 if(gain > best_gain)
                 {
                     best_gain = gain;
@@ -191,11 +214,12 @@ private:
 
         for(int i = from; i < to; ++i)
         {
-            response[i] = best_feature(X[indices[i]]);
+            response[i-from] = best_feature(X[indices[i]]);
         }
 
+        std::cout << best_gain << std::endl;
         NodePtr parent(new Node<FeatureType>(best_feature, best_gain, parent_hist));
-        int thres_index = std::partition(indices.begin(), indices.end(), [&](int index){return response[index] < best_thres;}) - indices.begin();
+        int thres_index = std::partition(indices.begin()+from, indices.begin()+to, [&](int index){return response[index] < best_thres;}) - indices.begin();
 
         //recurese on left and right child
         NodePtr l_child = buildTree(X, y, indices, from, thres_index);

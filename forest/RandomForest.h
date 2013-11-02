@@ -3,7 +3,7 @@
 #include <memory>
 #include <iostream>
 #include <util.h>
-
+#include <numeric>
 template <typename FeatureType>
 class RandomForest
 {
@@ -32,7 +32,8 @@ public:
         {
            // std::vector<int> indices = randomSamples(X.size(), data_per_tree);
             std::vector<int> indices(X.size());
-            for(int j = 0; j < X.size(); ++j) indices[j] = j;
+            std::iota(indices.begin(), indices.end(), 0);
+            std::random_shuffle(indices.begin(), indices.end());
             trees[i]->train(X, y, indices);
         }
     }
