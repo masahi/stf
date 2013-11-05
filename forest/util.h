@@ -71,11 +71,11 @@ std::tuple<std::vector<std::vector<T>>,std::vector<int>> readLIBSVM(const std::s
     std::vector<std::string> line;
     std::vector<std::vector<T>> features;
     std::vector<int> label;
-    std::vector<T> feature(dim,0);
 
     while (std::getline(ifs, buf))
     {
        line.clear();
+       std::vector<double> feature(dim, 0);
        boost::split(line, buf, boost::is_any_of(" \n\t"));
        int c = boost::lexical_cast<int>(line[0]);
        label.push_back(c);
