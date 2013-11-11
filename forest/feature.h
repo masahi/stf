@@ -6,50 +6,18 @@
 class IdentityFeature
 {
 public:
+   IdentityFeature(int i) : index(i){}
 
-    static int FEATURE_DIM;
-
-    static IdentityFeature getRandom()
-    {
-        return IdentityFeature(randInt(0, FEATURE_DIM));
-    }
-
-    IdentityFeature()
-        : index(-1)
-    {
-    }
-
-    IdentityFeature(int index_)
-        : index(index_)
-    {
-    }
-
-    IdentityFeature(const IdentityFeature& other)
-        : index(other.getIndex())
-    {
-    }
-
-    IdentityFeature& operator=(const IdentityFeature& other)
-    {
-        index = other.getIndex();
-        return *this;
-    }
-
-    template <typename T>
-    double operator()(const std::vector<T>& v) const
-    {
-        assert(index >= 0);
-        assert(index < FEATURE_DIM);
-        return v[index];
-    }
-
-    int getIndex() const
-    {
-        return index;
-    }
+   template <typename T>
+   double operator()(const std::vector<T>& v) const {return v[index];}
 
 private:
-    int index;
+   int index;
 };
+
+IdentityFeature* createFeature(int dim)
+{
+    return new IdentityFeature(randInt(0, dim));
+}
 
 #endif // FEATURE_H

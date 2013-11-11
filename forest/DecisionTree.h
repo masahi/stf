@@ -13,54 +13,51 @@ public:
     typedef Node<FeatureType>* NodeRawPtr;
     typedef std::unique_ptr<Node<FeatureType>> NodePtr;
 
-    Node(const Histogram& h)
-        : feature(FeatureType::getRandom()),
+    Node(int node_index_, std::shared_ptr<FeatureType> dummy, const Histogram& h)
+        : node_index(node_index_),
+          feature(dummy),
           threshold(0),
           hist(h),
           dist(hist.getNumberOfBins(), 0),
-          is_leaf(true)
+          is_leaf(true),
+          left(nullptr),
+          right(nullptr)
     {
         const int n_samples = hist.getNumberOfSamples();
 
         std::vector<int> bins = hist.getBins();
-        std::transform(bins.begin(), bins.end(), dist.begin(), [](int count){ return static_cast<double>(count)/n_samples;});
+      //  std::transform(dist.begin(), dist.end(), bins.begin(), [](int count){ return static_cast<double>(count)/n_samples;});
+        for (int i = 0; i < bins.size(); ++i) {
+            dist[i] = (double)bins[i] / n_samples;
+        }
     }
 
-    Node(const FeatureType& f, double t,const Histogram& h)
-        : feature(f),
+    Node(int node_index_, std::shared_ptr<FeatureType> f, double t,const Histogram& h)
+        : node_index(node_index_),
+          feature(f),
           threshold(t),
           hist(h),
           is_leaf(false)
     {
     }
 
-    Node& operator=(const Node& other)
-    {
-        feature(other.getFeature());
-        return *this;
-    }
     template <typename Data>
     double getFeatureResponse(Data v) const
     {
-        return feature(v);
+        return (*feature)(v);
     }
 
-    void addSample(int label)
-    {
-        hist.accumulate(label);
-    }
-
-    void setLeftChild(const NodeRawPtr child)
+    void setLeftChild(NodeRawPtr child)
     {
         left = NodePtr(child);
-
     }
 
-    void setRightChild(const NodeRawPtr child)
+    void setRightChild(NodeRawPtr child)
     {
         right = NodePtr(child);
     }
 
+    int getNodeIndex() const {return node_index;}
     NodeRawPtr getLeftChild() const { return left.get();}
     NodeRawPtr getRightChild() const { return right.get();}
     double getThreshold() const { return threshold;}
@@ -69,8 +66,9 @@ public:
     bool isLeaf() const { return is_leaf;}
 
 private:
-    FeatureType feature;
+    std::shared_ptr<FeatureType> feature;
     double threshold;
+    int node_index;
     Histogram hist;
     std::vector<double> dist;
     bool is_leaf;
@@ -97,10 +95,12 @@ public:
     }
 
     template <typename D>
-    void train(const std::vector<D>& X, const std::vector<int>& y, std::vector<int>& indices)
+    void train(const std::vector<D>& X,
+               const std::vector<int>& y,
+               std::vector<int>& indices,
+               const std::function<FeatureType* ()>& factory)
     {
-        NodeRawPtr r = buildTree(X, y, indices, 0, y.size());
-        root = NodePtr(r);
+        root = NodePtr(buildTree(X, y, indices, 0, y.size(), factory));
     }
 
     template <typename D>
@@ -120,15 +120,20 @@ public:
 private:
 
     template <typename D>
-    NodeRawPtr buildTree(const std::vector<D>& X, const std::vector<int>& y, std::vector<int>& indices, int from, int to)
+    NodeRawPtr buildTree(const std::vector<D>& X,
+                         const std::vector<int>& y,
+                         std::vector<int>& indices,
+                         int from, int to,
+                         const std::function<FeatureType* ()>& factory)
     {
         const int n_data = to - from;
-    //    std::cout << from << "," << to << "," << n_data << std::endl;
         std::vector<double> response(n_data);
 
         double best_gain = -1;
-        FeatureType best_feature;
+        std::shared_ptr<FeatureType> best_feature(factory());
         double best_thres;
+
+        std::vector<double> threshold(n_thres_per_feat+1,std::numeric_limits<double>::max());
 
         Histogram parent_hist(n_classes);
         for(int i = from; i < to; ++i)
@@ -141,28 +146,25 @@ private:
         {
             if(parent_hist.getCounts(i) == n_data)
             {
-
-            std::cout << "same labels!\n";
-            return new Node<FeatureType>(parent_hist);
-
+                NodeRawPtr leaf(new Node<FeatureType>(n_nodes++, best_feature,parent_hist));
+                return leaf;
             }
         }
 
         if(n_data <=5 )
         {
-            std::cout << "min sample reached.!!\n";
-            return new Node<FeatureType>(parent_hist);
+            NodeRawPtr leaf(new Node<FeatureType>(n_nodes++, best_feature, parent_hist));
+            return leaf;
         }
 
 
-        std::vector<double> threshold(n_thres_per_feat+1,std::numeric_limits<double>::max());
         int n_threshold;
         for(int i = 0; i < n_candidate_feat; ++i)
         {
-            FeatureType f = FeatureType::getRandom();
+            std::shared_ptr<FeatureType> f(factory());
             for(int j = from; j < to; ++j)
             {
-                response[j-from] = f(X[indices[j]]);
+                response[j-from] = (*f)(X[indices[j]]);
             }
             if(n_data > n_thres_per_feat)
             {
@@ -178,11 +180,10 @@ private:
                 n_threshold = n_data - 1;
             }
 
-            std::sort(threshold.begin(), threshold.begin()+n_threshold+1);
+            std::sort(threshold.begin(), threshold.begin()+n_threshold);
 
             if(threshold[0] == threshold[n_threshold-1])
             {
-                std::cout << "Response values all the same." << std::endl;
                 continue;
             }
 
@@ -203,7 +204,7 @@ private:
 
             for (int t = 1; t < n_threshold+1; ++t)
             {
-               right_statistics.accumulate(partition_statistics[t]);
+                right_statistics.accumulate(partition_statistics[t]);
             }
 
             double gain = computeInfomationGain(parent_hist, left_statistics, right_statistics);
@@ -212,6 +213,7 @@ private:
                 best_gain = gain;
                 best_feature = f;
                 best_thres = threshold[0];
+
             }
 
             for(int t = 1; t < n_threshold; ++t)
@@ -220,44 +222,34 @@ private:
                 right_statistics.decrease(partition_statistics[t]);
 
                 gain = computeInfomationGain(parent_hist, left_statistics, right_statistics);
-               // std::cout << t <<"," << gain << std::endl;
+                // std::cout << t <<"," << gain << std::endl;
                 if(gain > best_gain)
                 {
                     best_gain = gain;
                     best_feature = f;
                     best_thres = threshold[t];
+
                 }
             }
-
-
-
         }
 
         if(best_gain <= 0.01)
         {
-            std::cout << "Gain zero!!\n";
-            return new Node<FeatureType>(parent_hist);
+            NodeRawPtr leaf(new Node<FeatureType>(n_nodes++,best_feature,parent_hist));
+            return leaf;
         }
 
         for(int i = from; i < to; ++i)
         {
-    //        response[i-from] = best_feature(X[indices[i]]);
-       int ind = indices[i];
-           double v = best_feature(X[ind]);
-       response[i-from] = v;
+            response[i-from] = (*best_feature)(X[indices[i]]);
         }
 
-     //   std::cout << best_gain << std::endl;
-        NodeRawPtr parent(new Node<FeatureType>(best_feature, best_gain, parent_hist));
+        NodeRawPtr parent(new Node<FeatureType>(n_nodes++,best_feature, best_thres, parent_hist));
 
-        int index = 0;
-        std::vector<int> ind_copy(indices.begin()+from, indices.begin()+to);
-        int thres_index = std::partition(indices.begin()+from, indices.begin()+to, [&](int dummy){index++; return response[index-1] < best_thres;}) - indices.begin()+1;//-from;
-     //   int thres_index = partitionByResponse(indices,from, to, response, best_thres);
+        int thres_index = partitionByResponse(indices,from, to, response, best_thres);
 
-        //recurese on left and right child
-        NodeRawPtr l_child = buildTree(X, y, indices, from, thres_index);
-        NodeRawPtr r_child = buildTree(X, y, indices, thres_index, to);
+        NodeRawPtr l_child = buildTree(X, y, indices, from, thres_index, factory);
+        NodeRawPtr r_child = buildTree(X, y, indices, thres_index, to, factory);
         parent->setLeftChild(l_child);
         parent->setRightChild(r_child);
         return parent;

@@ -59,8 +59,11 @@ double computeInfomationGain(const Histogram& parent, const Histogram& left, con
 
 std::vector<int> randomSamples(int m, int n)
 {
-    std::vector<int> samples(n);
-    return samples;
+    std::vector<int> indices(m);
+    std::iota(indices.begin(), indices.end(), 0);
+    std::random_shuffle(indices.begin(), indices.end());
+
+    return indices;
 }
 
 template<typename T>
@@ -71,11 +74,11 @@ std::tuple<std::vector<std::vector<T>>,std::vector<int>> readLIBSVM(const std::s
     std::vector<std::string> line;
     std::vector<std::vector<T>> features;
     std::vector<int> label;
+    std::vector<T> feature(dim,0);
 
     while (std::getline(ifs, buf))
     {
        line.clear();
-       std::vector<double> feature(dim, 0);
        boost::split(line, buf, boost::is_any_of(" \n\t"));
        int c = boost::lexical_cast<int>(line[0]);
        label.push_back(c);
