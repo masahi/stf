@@ -43,11 +43,11 @@ public:
       }
    }
 
-   std::vector<double> getDistribution() { return dist;}
+   const std::vector<double>& getDistribution() const { return dist;}
 
 private:
 
-   Histogram hist;
+   const Histogram& hist;
    std::vector<double> dist;
 };
 
