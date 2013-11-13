@@ -5,84 +5,16 @@
 #include <Histogram.h>
 #include <util.h>
 #include <limits>
+#include <Node.h>
 
-template <typename FeatureType>
-class Node
-{
-public:
-    typedef Node<FeatureType>* NodeRawPtr;
-    typedef std::unique_ptr<Node<FeatureType>> NodePtr;
-
-    Node(int node_index_, std::shared_ptr<FeatureType> dummy, const Histogram& h)
-        : node_index(node_index_),
-          feature(dummy),
-          threshold(0),
-          hist(h),
-          dist(hist.getNumberOfBins(), 0),
-          is_leaf(true),
-          left(nullptr),
-          right(nullptr)
-    {
-        const int n_samples = hist.getNumberOfSamples();
-
-        std::vector<int> bins = hist.getBins();
-      //  std::transform(dist.begin(), dist.end(), bins.begin(), [](int count){ return static_cast<double>(count)/n_samples;});
-        for (int i = 0; i < bins.size(); ++i) {
-            dist[i] = (double)bins[i] / n_samples;
-        }
-    }
-
-    Node(int node_index_, std::shared_ptr<FeatureType> f, double t,const Histogram& h)
-        : node_index(node_index_),
-          feature(f),
-          threshold(t),
-          hist(h),
-          is_leaf(false)
-    {
-    }
-
-    template <typename Data>
-    double getFeatureResponse(Data v) const
-    {
-        return (*feature)(v);
-    }
-
-    void setLeftChild(NodeRawPtr child)
-    {
-        left = NodePtr(child);
-    }
-
-    void setRightChild(NodeRawPtr child)
-    {
-        right = NodePtr(child);
-    }
-
-    int getNodeIndex() const {return node_index;}
-    NodeRawPtr getLeftChild() const { return left.get();}
-    NodeRawPtr getRightChild() const { return right.get();}
-    double getThreshold() const { return threshold;}
-    FeatureType getFeature() const { return feature;}
-    std::vector<double> getDistribution() const { return dist;}
-    bool isLeaf() const { return is_leaf;}
-
-private:
-    std::shared_ptr<FeatureType> feature;
-    double threshold;
-    int node_index;
-    Histogram hist;
-    std::vector<double> dist;
-    bool is_leaf;
-    NodePtr left;
-    NodePtr right;
-};
 
 template <typename FeatureType>
 class DecisionTree
 {
 public:
 
-    typedef typename Node<FeatureType>::NodeRawPtr NodeRawPtr;
-    typedef typename Node<FeatureType>::NodePtr NodePtr;
+    typedef Node::NodePtr NodePtr;
+    typedef Node::NodeRawPtr NodeRawPtr;
 
     DecisionTree(int n_classes_)
         : n_classes(n_classes_),
@@ -110,11 +42,12 @@ public:
 
         while(!current_node->isLeaf())
         {
-            double response = current_node->getFeatureResponse(x);
-            if(response < current_node->getThreshold()) current_node = current_node->getLeftChild();
-            else current_node = current_node->getRightChild();
+            SplitNode<FeatureType>* node = dynamic_cast<SplitNode<FeatureType>*>(current_node);
+            double response = node->getFeatureResponse(x);
+            if(response < node->getThreshold()) current_node = node->getLeftChild();
+            else current_node = node->getRightChild();
         }
-        return current_node->getDistribution();
+        return dynamic_cast<LeafNode*>(current_node)->getDistribution();
     }
 
 private:
@@ -146,14 +79,14 @@ private:
         {
             if(parent_hist.getCounts(i) == n_data)
             {
-                NodeRawPtr leaf(new Node<FeatureType>(n_nodes++, best_feature,parent_hist));
+                LeafNode* leaf = new LeafNode(n_nodes++, parent_hist);
                 return leaf;
             }
         }
 
         if(n_data <=5 )
         {
-            NodeRawPtr leaf(new Node<FeatureType>(n_nodes++, best_feature, parent_hist));
+            LeafNode* leaf = new LeafNode(n_nodes++, parent_hist);
             return leaf;
         }
 
@@ -222,7 +155,7 @@ private:
                 right_statistics.decrease(partition_statistics[t]);
 
                 gain = computeInfomationGain(parent_hist, left_statistics, right_statistics);
-                // std::cout << t <<"," << gain << std::endl;
+
                 if(gain > best_gain)
                 {
                     best_gain = gain;
@@ -235,7 +168,7 @@ private:
 
         if(best_gain <= 0.01)
         {
-            NodeRawPtr leaf(new Node<FeatureType>(n_nodes++,best_feature,parent_hist));
+            LeafNode* leaf = new LeafNode(n_nodes++,parent_hist);
             return leaf;
         }
 
@@ -244,7 +177,7 @@ private:
             response[i-from] = (*best_feature)(X[indices[i]]);
         }
 
-        NodeRawPtr parent(new Node<FeatureType>(n_nodes++,best_feature, best_thres, parent_hist));
+        SplitNode<FeatureType>* parent(new SplitNode<FeatureType>(n_nodes++,best_feature, best_thres));
 
         int thres_index = partitionByResponse(indices,from, to, response, best_thres);
 

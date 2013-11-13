@@ -2,6 +2,7 @@
 #define FEATURE_H
 
 #include <util.h>
+#include <opencv2/core/core.hpp>
 
 class IdentityFeature
 {
@@ -14,6 +15,22 @@ public:
 private:
    int index;
 };
+
+//class PatchFeature
+//{
+//public:
+//    PatchFeature(){}
+
+//    template
+//    double operator()(const cv::Mat& patch)
+//    {
+
+//    }
+
+
+//private:
+
+//};
 
 IdentityFeature* createFeature(int dim)
 {

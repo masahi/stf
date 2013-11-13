@@ -16,21 +16,6 @@ public:
 
     }
 
-    Histogram(const Histogram& other)
-        : n_bins(other.getNumberOfBins()),
-          n_samples(other.getNumberOfSamples()),
-          bins(other.getBins())
-    {
-    }
-
-    Histogram& operator=(const Histogram& other)
-    {
-        n_samples = other.getNumberOfSamples();
-        n_bins = other.getNumberOfBins();
-        bins = other.getBins();
-        return *this;
-    }
-
     int getNumberOfSamples() const
     {
         return n_samples;
@@ -94,7 +79,7 @@ public:
     }
 
 private:
-    int n_bins;
+    const int n_bins;
     int n_samples;
     std::vector<int> bins;
 };
