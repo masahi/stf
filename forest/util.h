@@ -17,11 +17,61 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
 
-template<typename T>
+template <typename T>
 using Matrix = Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>;
 
-template<typename T>
+template <typename T>
 using Vector = Eigen::Matrix<T, Eigen::Dynamic, 1>;
+
+template <typename T>
+class EigenMatrixAdapter
+{
+public:
+
+    EigenMatrixAdapter(const Matrix<T>& mat):
+        matrix(mat)
+    {
+    }
+
+    const size_t size() const
+    {
+        return matrix.rows();
+    }
+
+    Vector<T> operator[](int index) const
+    {
+        return matrix.row(index).transpose();
+    }
+
+private:
+
+    const Matrix<T>& matrix;
+};
+
+template <typename T>
+class EigenVectorAdapter
+{
+public:
+
+    EigenVectorAdapter(const Vector<T>& vec):
+        vector(vec)
+    {
+    }
+
+    const size_t size() const
+    {
+        return vector.rows();
+    }
+
+    T operator[](int index) const
+    {
+        return vector(index);
+    }
+
+private:
+
+    const Vector<T>& vector;
+};
 
 int randInt(int a, int b)
 {
@@ -74,7 +124,7 @@ std::vector<int> randomSamples(int m, int n)
     return indices;
 }
 
-template<typename T>
+template <typename T>
 std::tuple<std::vector<std::vector<T>>,std::vector<int>> readLibsvm(const std::string& file, int dim)
 {
     std::ifstream ifs(file.c_str());

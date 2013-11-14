@@ -26,9 +26,9 @@ public:
 
     }
 
-    template <typename D>
-    void train(const std::vector<D>& X,
-               const std::vector<int>& y,
+    template <typename FeatureContainer, typename LabelContainer>
+    void train(const FeatureContainer& X,
+               const LabelContainer& y,
                std::vector<int>& indices,
                const std::function<FeatureType* ()>& factory)
     {
@@ -52,9 +52,9 @@ public:
 
 private:
 
-    template <typename D>
-    NodeRawPtr buildTree(const std::vector<D>& X,
-                         const std::vector<int>& y,
+    template <typename FeatureContainer,typename LabelContainer>
+    NodeRawPtr buildTree(const FeatureContainer& X,
+                         const LabelContainer& y,
                          std::vector<int>& indices,
                          int from, int to,
                          const std::function<FeatureType* ()>& factory)

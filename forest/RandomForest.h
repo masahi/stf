@@ -23,9 +23,18 @@ public:
     {
     }
 
-    template <typename D>
-    void train(const std::vector<D>& X,
-               const std::vector<int>& y,
+    template <typename T>
+    void train(const Matrix<T>& X,
+               const Vector<int>& y,
+               const std::function<FeatureType* ()>& factory,
+               int n_threads = 1)
+    {
+        train(EigenMatrixAdapter<T>(X), EigenVectorAdapter<int>(y), factory, n_threads);
+    }
+
+    template <typename FeatureContainer,typename LabelContainer>
+    void train(const FeatureContainer& X,
+               const LabelContainer& y,
                const std::function<FeatureType* ()>& factory,
                int n_threads = 1)
     {

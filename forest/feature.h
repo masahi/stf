@@ -19,21 +19,32 @@ private:
    int index;
 };
 
-//class PatchFeature
-//{
-//public:
-//    PatchFeature(){}
+class PatchFeature
+{
+public:
 
-//    template
-//    double operator()(const cv::Mat& patch)
-//    {
+    enum Type
+    {
+        Unary,
+        Add,
+        Sub,
+        AbsSub
+    };
 
-//    }
+    PatchFeature(){}
+
+    template
+    double operator()(const cv::Mat& patch)
+    {
+
+    }
 
 
-//private:
+private:
 
-//};
+    const int patch_size;
+    const Type type
+};
 
 IdentityFeature* createFeature(int dim)
 {

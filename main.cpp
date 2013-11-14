@@ -27,8 +27,8 @@ int main(int argc, char *argv[])
 
     boost::timer t;
     const std::function<IdentityFeature* ()> featureFactory = std::bind(createFeature, feature_dim);
-    const int n_trees = 1;
-    const int n_threads = 1;
+    const int n_trees = 10;
+    const int n_threads = 8;
     RandomForest<IdentityFeature> forest(n_classes,n_trees);
     forest.train(X2, y2, featureFactory, n_threads);
 
