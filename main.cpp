@@ -8,15 +8,20 @@
 #include <util.h>
 
 using namespace std;
+using namespace Eigen;
 
 int main(int argc, char *argv[])
 {
     vector<vector<double>> X;
     vector<int> y;
 
+    MatrixXd X2;
+    VectorXi y2;
+
     const string file(argv[1]);
     const int feature_dim = boost::lexical_cast<int>(argv[2]);
-    tie(X,y) = readLIBSVM<double>(file,feature_dim);
+    tie(X,y) = readLibsvm<double>(file,feature_dim);
+    tie(X2,y2) = readLibsvmEigen<double>(file,feature_dim);
 
     const int n_classes = countUnique(y);
 
@@ -25,13 +30,13 @@ int main(int argc, char *argv[])
     const int n_trees = 1;
     const int n_threads = 1;
     RandomForest<IdentityFeature> forest(n_classes,n_trees);
-    forest.train(X, y, featureFactory, n_threads);
+    forest.train(X2, y2, featureFactory, n_threads);
 
     const string test_file(argv[3]);
     vector<vector<double>> X_test;
     vector<int> y_test;
 
-    tie(X_test,y_test) = readLIBSVM<double>(test_file,feature_dim);
+    tie(X_test,y_test) = readLibsvm<double>(test_file,feature_dim);
 
     int n_correct = 0;
     const int n_test = y.size();

@@ -12,8 +12,16 @@
 #include <set>
 #include <tuple>
 #include <sstream>
+#include <vector>
+#include <Eigen/Core>
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
+
+template<typename T>
+using Matrix = Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>;
+
+template<typename T>
+using Vector = Eigen::Matrix<T, Eigen::Dynamic, 1>;
 
 int randInt(int a, int b)
 {
@@ -67,7 +75,7 @@ std::vector<int> randomSamples(int m, int n)
 }
 
 template<typename T>
-std::tuple<std::vector<std::vector<T>>,std::vector<int>> readLIBSVM(const std::string& file, int dim)
+std::tuple<std::vector<std::vector<T>>,std::vector<int>> readLibsvm(const std::string& file, int dim)
 {
     std::ifstream ifs(file.c_str());
     std::string buf;
@@ -107,6 +115,26 @@ std::tuple<std::vector<std::vector<T>>,std::vector<int>> readLIBSVM(const std::s
 
     return make_tuple(features, label);
 }
+
+template <typename T>
+std::tuple<Matrix<T>, Eigen::VectorXi> readLibsvmEigen(const std::string& file, int dim)
+{
+    std::vector<std::vector<T>> X;
+    std::vector<int> y;
+
+    std::tie(X,y) = readLibsvm<double>(file,dim);
+    Matrix<T> m(X.size(), dim);
+    for (int i = 0; i < y.size(); ++i)
+    {
+       Vector<T> vec = Eigen::Map<Vector<T>>(&X[i][0], dim);
+       m.row(i) = vec.transpose();
+    }
+
+    Eigen::VectorXi l = Eigen::Map<Eigen::VectorXi>(&y[0], y.size());
+
+    return std::make_tuple(m, l);
+}
+
 
 template<typename T>
 int countUnique(const std::vector<T>& vec)

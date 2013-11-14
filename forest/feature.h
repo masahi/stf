@@ -10,7 +10,10 @@ public:
    IdentityFeature(int i) : index(i){}
 
    template <typename T>
-   double operator()(const std::vector<T>& v) const {return v[index];}
+   double operator()(const std::vector<T>& v) const { return v[index];}
+
+   template <typename T>
+   double operator()(const Vector<T>& v) const { return v(index);}
 
 private:
    int index;
