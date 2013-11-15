@@ -39,16 +39,16 @@ public:
       const int n_samples = hist.getNumberOfSamples();
       const int n_bins = hist.getNumberOfBins();
       for (int i = 0; i < n_bins; ++i) {
-         dist[i] = static_cast<double>(hist.getCounts(i)) / n_samples;
+         dist(i) = static_cast<double>(hist.getCounts(i)) / n_samples;
       }
    }
 
-   const std::vector<double>& getDistribution() const { return dist;}
+   const Vector<double>& getDistribution() const { return dist;}
 
 private:
 
    const Histogram& hist;
-   std::vector<double> dist;
+   Vector<double> dist;
 };
 
 template <typename FeatureType>

@@ -23,7 +23,7 @@ class PatchFeature
 {
 public:
 
-    enum Type
+    enum class ResponseType
     {
         Unary,
         Add,
@@ -31,11 +31,16 @@ public:
         AbsSub
     };
 
-    PatchFeature(){}
+    PatchFeature(int patch_size_, ResponseType type_):
+        patch_size(patch_size_),
+        type(type_)
+    {
 
-    template
+    }
+
     double operator()(const cv::Mat& patch)
     {
+        return 0;
 
     }
 
@@ -43,7 +48,7 @@ public:
 private:
 
     const int patch_size;
-    const Type type
+    const ResponseType type;
 };
 
 IdentityFeature* createFeature(int dim)

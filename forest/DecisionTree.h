@@ -36,7 +36,7 @@ public:
     }
 
     template <typename D>
-    std::vector<double> predictDistribution(const D& x)
+    Vector<double> predictDistribution(const D& x)
     {
         NodeRawPtr current_node = root.get();
 

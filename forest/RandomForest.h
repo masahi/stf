@@ -7,6 +7,9 @@
 #include <functional>
 #include <numeric>
 #include <omp.h>
+#include <tbb/parallel_for.h>
+#include <tbb/parallel_reduce.h>
+#include <tbb/blocked_range.h>
 
 template <typename FeatureType>
 class RandomForest
@@ -51,29 +54,43 @@ public:
 
 
     template <typename D>
-    std::vector<double> predictDistribution(const D& x)
+    Vector<double> predictDistribution(const D& x)
     {
-        std::vector<double> dist(n_classes, 0);
+//        std::vector<double> dist(n_classes, 0);
 
-#pragma omp parallel for
-        for (int i = 0; i < n_trees; ++i)
-        {
-           std::vector<double> tree_dist = trees[i]->predictDistribution(x);
-#pragma omp critical
-           std::transform(dist.begin(), dist.end(), tree_dist.begin(), dist.begin(), std::plus<double>());
-        }
+//#pragma omp parallel for
+//        for (int i = 0; i < n_trees; ++i)
+//        {
+//           std::vector<double> tree_dist = trees[i]->predictDistribution(x);
+//#pragma omp critical
+//           std::transform(dist.begin(), dist.end(), tree_dist.begin(), dist.begin(), std::plus<double>());
+//        }
 
-        using std::placeholders::_1;
-        std::transform(dist.begin(), dist.end(), dist.begin(), std::bind(std::divides<double>(), _1,n_trees));
-        return dist;
+//        using std::placeholders::_1;
+//        std::transform(dist.begin(), dist.end(), dist.begin(), std::bind(std::divides<double>(), _1,n_trees));
+//        return dist;
+    return 1.0/n_trees * tbb::parallel_reduce(tbb::blocked_range<int>(0,n_trees),
+                             Vector<double>::Zero(n_trees),
+                             [&](const tbb::blocked_range<int>& range, Vector<double>& init)
+                               {
+                                   for(int i = range.begin(); i < range.end(); ++i)
+                                    {
+                                        init += trees[i]->predictDistribution(x);
+                                    }
+                                    return init;
+                               },
+                             std::plus<Vector<double>>()
+                             );
     }
 
     template <typename D>
     int predict(const D& x, int n_threads = 1)
     {
         omp_set_num_threads(n_threads);
-        std::vector<double> dist = predictDistribution(x);
-        return std::max_element(dist.begin(), dist.end()) - dist.begin();
+        Vector<double> dist = predictDistribution(x);
+    int argmax;
+        dist.maxCoeff(&argmax);
+        return argmax;
     }
 
 private:
