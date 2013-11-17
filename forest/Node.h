@@ -34,7 +34,7 @@ public:
    LeafNode(int node_index, const Histogram& h):
        Node(node_index, true),
        hist(h),
-       dist(hist.getNumberOfBins(),0)
+       dist(Vector<double>(hist.getNumberOfBins()))
    {
       const int n_samples = hist.getNumberOfSamples();
       const int n_bins = hist.getNumberOfBins();

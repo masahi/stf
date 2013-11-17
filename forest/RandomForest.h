@@ -21,74 +21,82 @@ public:
 
     RandomForest(int n_classes_, int n_trees_ = 1)
         :n_classes(n_classes_),
-         n_trees(n_trees_),
-         trees(n_trees, TreePtr(new Tree(n_classes)))
+          n_trees(n_trees_),
+          trees(n_trees, TreePtr(new Tree(n_classes)))
     {
     }
 
     template <typename T>
     void train(const Matrix<T>& X,
                const Vector<int>& y,
-               const std::function<FeatureType* ()>& factory,
-               int n_threads = 1)
+               const std::function<FeatureType* ()>& factory)
     {
-        train(EigenMatrixAdapter<T>(X), EigenVectorAdapter<int>(y), factory, n_threads);
+        train(EigenMatrixAdapter<T>(X), EigenVectorAdapter<int>(y), factory);
     }
 
     template <typename FeatureContainer,typename LabelContainer>
     void train(const FeatureContainer& X,
                const LabelContainer& y,
-               const std::function<FeatureType* ()>& factory,
-               int n_threads = 1)
+               const std::function<FeatureType* ()>& factory)
     {
         const int data_per_tree = X.size() * 0.25;
-        omp_set_num_threads(n_threads);
 
-#pragma omp parallel for
         for(int i = 0; i < n_trees; ++i)
-        {
-            std::vector<int> indices = randomSamples(X.size(), data_per_tree);
-            trees[i]->train(X, y, indices, factory);
+        {std::vector<int> indices = randomSamples(X.size(), data_per_tree);
+            trees[i]->train(X,y, indices,factory);
+
         }
+//        tbb::parallel_for(0,
+//                          n_trees,
+//                          [&](int i)
+//                          {
+//                           std::vector<int> indices = randomSamples(X.size(), data_per_tree);
+//                           trees[i]->train(X,y, indices,factory);
+//                          }
+//                          );
     }
 
 
     template <typename D>
     Vector<double> predictDistribution(const D& x)
     {
-//        std::vector<double> dist(n_classes, 0);
+        Vector<double> zeros = Vector<double>::Zero(n_classes);
 
-//#pragma omp parallel for
-//        for (int i = 0; i < n_trees; ++i)
-//        {
-//           std::vector<double> tree_dist = trees[i]->predictDistribution(x);
-//#pragma omp critical
-//           std::transform(dist.begin(), dist.end(), tree_dist.begin(), dist.begin(), std::plus<double>());
-//        }
+        return 1.0/n_trees *
+                tbb::parallel_reduce(tbb::blocked_range<int>(0,n_trees),
+                                     zeros,
+                                     [&](const tbb::blocked_range<int>& range, Vector<double> init)
+                                     {
+                                       for(int i = range.begin(); i < range.end(); ++i)
+                                       {
+                                          init += trees[i]->predictDistribution(x);
+                                       }
+                                       return init;
+                                     },
+                                     std::plus<Vector<double>>()
+                                     );
+    }
 
-//        using std::placeholders::_1;
-//        std::transform(dist.begin(), dist.end(), dist.begin(), std::bind(std::divides<double>(), _1,n_trees));
-//        return dist;
-    return 1.0/n_trees * tbb::parallel_reduce(tbb::blocked_range<int>(0,n_trees),
-                             Vector<double>::Zero(n_trees),
-                             [&](const tbb::blocked_range<int>& range, Vector<double>& init)
-                               {
-                                   for(int i = range.begin(); i < range.end(); ++i)
-                                    {
-                                        init += trees[i]->predictDistribution(x);
-                                    }
-                                    return init;
-                               },
-                             std::plus<Vector<double>>()
-                             );
+    template <typename T>
+    std::vector<int> predict(const Matrix<T>& X)
+    {
+        EigenMatrixAdapter<T> adapter(X);
+        const int n_samples = adapter.size();
+        std::vector<int> prediction(n_samples);
+
+        for(int i = 0; i < n_samples; ++i)
+        {
+           prediction[i] = predict(adapter[i]);
+        }
+
+        return prediction;
     }
 
     template <typename D>
-    int predict(const D& x, int n_threads = 1)
+    int predict(const D& x)
     {
-        omp_set_num_threads(n_threads);
         Vector<double> dist = predictDistribution(x);
-    int argmax;
+        int argmax;
         dist.maxCoeff(&argmax);
         return argmax;
     }

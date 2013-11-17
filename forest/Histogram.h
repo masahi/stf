@@ -50,6 +50,7 @@ public:
     void accumulate(int label)
     {
         assert(label < n_bins);
+        assert(label >= 0);
         ++bins[label];
         ++n_samples;
     }

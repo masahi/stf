@@ -117,10 +117,13 @@ double computeInfomationGain(const Histogram& parent, const Histogram& left, con
 
 std::vector<int> randomSamples(int m, int n)
 {
-    std::vector<int> indices(m);
-    std::iota(indices.begin(), indices.end(), 0);
-    std::random_shuffle(indices.begin(), indices.end());
+    std::vector<int> indices(n);
+  //  std::iota(indices.begin(), indices.end(), 0);
+  //  std::random_shuffle(indices.begin(), indices.end());
 
+    for (int i = 0; i < n; ++i) {
+        indices[i] = randInt(0,m);
+    }
     return indices;
 }
 
