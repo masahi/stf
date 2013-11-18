@@ -118,8 +118,8 @@ double computeInfomationGain(const Histogram& parent, const Histogram& left, con
 std::vector<int> randomSamples(int m, int n)
 {
     std::vector<int> indices(n);
-  //  std::iota(indices.begin(), indices.end(), 0);
-  //  std::random_shuffle(indices.begin(), indices.end());
+//    std::iota(indices.begin(), indices.end(), 0);
+//    std::random_shuffle(indices.begin(), indices.end());
 
     for (int i = 0; i < n; ++i) {
         indices[i] = randInt(0,m);
@@ -166,7 +166,7 @@ std::tuple<std::vector<std::vector<T>>,std::vector<int>> readLibsvm(const std::s
     }
     std::replace(label.begin(), label.end(),-2,1);
 
-    return make_tuple(features, label);
+    return std::make_tuple(features, label);
 }
 
 template <typename T>

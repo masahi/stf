@@ -32,7 +32,7 @@ public:
                std::vector<int>& indices,
                const std::function<FeatureType* ()>& factory)
     {
-        root = NodePtr(buildTree(X, y, indices, 0, y.size(), factory));
+        root = NodePtr(buildTree(X, y, indices, 0, indices.size(), factory));
     }
 
     template <typename D>
@@ -84,7 +84,7 @@ private:
             }
         }
 
-        if(n_data <=5 )
+        if(n_data <=1 )
         {
             LeafNode* leaf = new LeafNode(n_nodes++, parent_hist);
             return leaf;
