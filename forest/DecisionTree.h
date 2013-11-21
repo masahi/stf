@@ -19,7 +19,7 @@ public:
 
     DecisionTree(int n_classes_)
         : n_classes(n_classes_),
-          n_candidate_feat(10),
+          n_candidate_feat(100),
           n_thres_per_feat(100),
           n_nodes(0)
     {
@@ -38,8 +38,7 @@ public:
     template <typename D>
     Vector<double> predictDistribution(const D& x)
     {
-    int index = 0;
-
+        int index = 0;
         while(!nodes[index]->isLeaf())
         {
             SplitNode<FeatureType>* node = dynamic_cast<SplitNode<FeatureType>*>(nodes[index].get());
@@ -115,7 +114,6 @@ private:
             {
                 LeafNode* leaf = new LeafNode(node_index, depth, parent_hist);
                 nodes.push_back(NodePtr(leaf));
-                std::cout << nodes.size() << std::endl;
 
                 if(is_left)
                 {
@@ -229,6 +227,15 @@ private:
 
             SplitNode<FeatureType>* split(new SplitNode<FeatureType>(node_index, depth, best_feature, best_thres));
             nodes.push_back(NodePtr(split));
+
+            if(is_left)
+            {
+                nodes[parent_index]->setLeftChildIndex(node_index);
+            }
+            else
+            {
+                nodes[parent_index]->setRightChildIndex(node_index);
+            }
 
             int thres_index = partitionByResponse(indices,from, to, response, best_thres);
 
