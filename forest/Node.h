@@ -7,32 +7,49 @@ class Node
 public:
 
     typedef Node* NodeRawPtr;
-    typedef std::unique_ptr<Node> NodePtr;
+    typedef std::shared_ptr<Node> NodePtr;
 
-    Node(int index, bool leaf):
+    Node(int index, bool leaf, int d):
         node_index(index),
-        is_leaf(leaf)
+        is_leaf(leaf),
+        depth(d),
+        left_child_index(-1),
+        right_child_index(-1)
     {
     }
 
     virtual ~Node(){}
 
-    int getNodeIndex() const { return node_index;}
+    void setLeftChildIndex(int index)
+    {
+        left_child_index = index;
+    }
 
+    void setRightChildIndex(int index)
+    {
+        right_child_index = index;
+    }
+
+    int getLeftChildIndex() const { return left_child_index;}
+    int getRightChildIndex() const { return right_child_index;}
+    int getNodeIndex() const { return node_index;}
     bool isLeaf() const { return is_leaf;}
 
 private:
 
-    int node_index;
-    bool is_leaf;
+    const int node_index;
+    const bool is_leaf;
+    const int depth;
+    int left_child_index;
+    int right_child_index;
 };
 
 class LeafNode : public Node
 {
 public:
 
-   LeafNode(int node_index, const Histogram& h):
-       Node(node_index, true),
+   LeafNode(int node_index, int depth, const Histogram& h):
+       Node(node_index, true, depth),
        hist(h),
        dist(Vector<double>(hist.getNumberOfBins()))
    {
@@ -59,8 +76,8 @@ public:
     typedef Node::NodePtr NodePtr;
     typedef Node::NodeRawPtr NodeRawPtr;
 
-    SplitNode(int node_index_, std::shared_ptr<FeatureType> f, double t)
-        : Node(node_index_, false),
+    SplitNode(int node_index, int depth, std::shared_ptr<FeatureType> f, double t)
+        : Node(node_index, false, depth),
           feature(f),
           threshold(t)
     {
@@ -72,26 +89,10 @@ public:
         return (*feature)(v);
     }
 
-    void setLeftChild(NodeRawPtr child)
-    {
-        left = NodePtr(child);
-    }
-
-    void setRightChild(NodeRawPtr child)
-    {
-        right = NodePtr(child);
-    }
-
-    NodeRawPtr getLeftChild() const { return left.get();}
-
-    NodeRawPtr getRightChild() const { return right.get();}
-
     double getThreshold() const { return threshold;}
 
 private:
 
     std::shared_ptr<FeatureType> feature;
     double threshold;
-    NodePtr left;
-    NodePtr right;
 };

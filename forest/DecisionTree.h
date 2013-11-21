@@ -5,6 +5,7 @@
 #include <Histogram.h>
 #include <util.h>
 #include <limits>
+#include <queue>
 #include <Node.h>
 
 
@@ -21,7 +22,6 @@ public:
           n_candidate_feat(10),
           n_thres_per_feat(100),
           n_nodes(0),
-          root(nullptr)
     {
 
     }
@@ -32,165 +32,231 @@ public:
                std::vector<int>& indices,
                const std::function<FeatureType* ()>& factory)
     {
-        root = NodePtr(buildTree(X, y, indices, 0, indices.size(), factory));
+        buildTree(X, y, indices, factory);
     }
 
     template <typename D>
     Vector<double> predictDistribution(const D& x)
     {
-        NodeRawPtr current_node = root.get();
+        NodeRawPtr current_node(nodes[0].get());
 
         while(!current_node->isLeaf())
         {
+            const int index = current_node->getNodeIndex();
             SplitNode<FeatureType>* node = dynamic_cast<SplitNode<FeatureType>*>(current_node);
-            double response = node->getFeatureResponse(x);
-            if(response < node->getThreshold()) current_node = node->getLeftChild();
-            else current_node = node->getRightChild();
+            const double response = node->getFeatureResponse(x);
+            if(response < node->getThreshold()) current_node = nodes[nodes[index]->getLeftChildIndex()];
+            else current_node = nodes[nodes[index]->getRightChildIndex()];
         }
         return dynamic_cast<LeafNode*>(current_node)->getDistribution();
     }
 
 private:
 
+    struct NodeBuildInfo
+    {
+        NodeBuildInfo(int from_, int to_, int parent_index_, bool is_left_):
+            from(from_),
+            to(to_),
+            parent_index(parent_index_),
+            is_left(is_left_)
+        {
+
+        }
+
+        const int from;
+        const int to;
+        const int parent_index;
+        const bool is_left;
+    };
+
     template <typename FeatureContainer,typename LabelContainer>
     NodeRawPtr buildTree(const FeatureContainer& X,
                          const LabelContainer& y,
                          std::vector<int>& indices,
-                         int from, int to,
                          const std::function<FeatureType* ()>& factory)
     {
-        const int n_data = to - from;
-        std::vector<double> response(n_data);
+        std::queue<NodeBuildInfo> que;
+        que.push(NodeBuildInfo(0, X.size(), 0));
 
-        double best_gain = -1;
-        std::shared_ptr<FeatureType> best_feature(factory());
-        double best_thres;
-
-        std::vector<double> threshold(n_thres_per_feat+1,std::numeric_limits<double>::max());
-
-        Histogram parent_hist(n_classes);
-        for(int i = from; i < to; ++i)
+        while(!que.empty())
         {
-            int l = y[indices[i]];
-            parent_hist.accumulate(l);
-        }
+            NodeBuildInfo info(que.front());
+            que.pop();
 
-        for(int i = 0; i < n_classes; ++i)
-        {
-            if(parent_hist.getCounts(i) == n_data)
+            const int parent_index = info.parent_index;
+            const int from = info.from;
+            const int to = info.to;
+            const bool is_left = info.is_left;
+            const int node_index = n_nodes++;
+
+            const int n_data = to - from;
+
+            if(n_data <=1 )
             {
-                LeafNode* leaf = new LeafNode(n_nodes++, parent_hist);
-                return leaf;
-            }
-        }
+                LeafNode* leaf = new LeafNode(node_index, parent_hist);
+                nodes.push_back(NodePtr(leaf));
 
-        if(n_data <=1 )
-        {
-            LeafNode* leaf = new LeafNode(n_nodes++, parent_hist);
-            return leaf;
-        }
-
-
-        int n_threshold;
-        for(int i = 0; i < n_candidate_feat; ++i)
-        {
-            std::shared_ptr<FeatureType> f(factory());
-            for(int j = from; j < to; ++j)
-            {
-                response[j-from] = (*f)(X[indices[j]]);
-            }
-            if(n_data > n_thres_per_feat)
-            {
-                for(int j = 0; j < n_thres_per_feat+1; ++j)
+                if(is_left)
                 {
-                    threshold[j] = response[randInt(0, n_data)];
-                    n_threshold = n_thres_per_feat;
+                    nodes[parent_index].setLeftChildIndex(node_index);
                 }
-            }
-            else
-            {
-                std::copy(response.begin(), response.begin()+n_data, threshold.begin());
-                n_threshold = n_data - 1;
-            }
+                else
+                {
+                    nodes[parent_index].setRightChildIndex(node_index);
+                }
 
-            std::sort(threshold.begin(), threshold.begin()+n_threshold);
-
-            if(threshold[0] == threshold[n_threshold-1])
-            {
                 continue;
             }
 
-            for(int j = 0; j < n_threshold; ++j)
+            std::vector<double> response(n_data);
+            double best_gain = -1;
+            std::shared_ptr<FeatureType> best_feature(factory());
+            double best_thres;
+
+            std::vector<double> threshold(n_thres_per_feat+1,std::numeric_limits<double>::max());
+
+            Histogram parent_hist(n_classes);
+            int prev_label = y[indices[from]];
+            bool same_label = true;
+
+            for(int i = from; i < to; ++i)
             {
-                threshold[j] = threshold[j] + (double)rand()/RAND_MAX * (threshold[j+1] - threshold[j]);
+                int l = y[indices[i]];
+                parent_hist.accumulate(l);
+                if(l != prev_label) same_label = false;
+                prev_label = l;
             }
 
-            std::vector<Histogram> partition_statistics(n_threshold+1, Histogram(n_classes));
-            for(int j = from; j < to; ++j)
+            if(same_label)
             {
-                int t = std::upper_bound(threshold.begin(), threshold.begin()+n_threshold, response[j-from]) - threshold.begin();
-                partition_statistics[t].accumulate(y[indices[j]]);
+                LeafNode* leaf = new LeafNode(node_index, parent_hist);
+                nodes.push_back(NodePtr(leaf));
+
+                if(is_left)
+                {
+                    nodes[parent_index].setLeftChildIndex(node_index);
+                }
+                else
+                {
+                    nodes[parent_index].setRightChildIndex(node_index);
+                }
+
+                continue;
             }
 
-            Histogram left_statistics(n_classes), right_statistics(n_classes);
-            left_statistics.accumulate(partition_statistics[0]);
 
-            for (int t = 1; t < n_threshold+1; ++t)
+            int n_threshold;
+            for(int i = 0; i < n_candidate_feat; ++i)
             {
-                right_statistics.accumulate(partition_statistics[t]);
-            }
+                std::shared_ptr<FeatureType> f(factory());
+                for(int j = from; j < to; ++j)
+                {
+                    response[j-from] = (*f)(X[indices[j]]);
+                }
+                if(n_data > n_thres_per_feat)
+                {
+                    for(int j = 0; j < n_thres_per_feat+1; ++j)
+                    {
+                        threshold[j] = response[randInt(0, n_data)];
+                        n_threshold = n_thres_per_feat;
+                    }
+                }
+                else
+                {
+                    std::copy(response.begin(), response.begin()+n_data, threshold.begin());
+                    n_threshold = n_data - 1;
+                }
 
-            double gain = computeInfomationGain(parent_hist, left_statistics, right_statistics);
-            if(gain > best_gain)
-            {
-                best_gain = gain;
-                best_feature = f;
-                best_thres = threshold[0];
+                std::sort(threshold.begin(), threshold.begin()+n_threshold);
 
-            }
+                if(threshold[0] == threshold[n_threshold-1])
+                {
+                    continue;
+                }
 
-            for(int t = 1; t < n_threshold; ++t)
-            {
-                left_statistics.accumulate(partition_statistics[t]);
-                right_statistics.decrease(partition_statistics[t]);
+                for(int j = 0; j < n_threshold; ++j)
+                {
+                    threshold[j] = threshold[j] + (double)rand()/RAND_MAX * (threshold[j+1] - threshold[j]);
+                }
 
-                gain = computeInfomationGain(parent_hist, left_statistics, right_statistics);
+                std::vector<Histogram> partition_statistics(n_threshold+1, Histogram(n_classes));
+                for(int j = from; j < to; ++j)
+                {
+                    int t = std::upper_bound(threshold.begin(), threshold.begin()+n_threshold, response[j-from]) - threshold.begin();
+                    partition_statistics[t].accumulate(y[indices[j]]);
+                }
 
+                Histogram left_statistics(n_classes), right_statistics(n_classes);
+                left_statistics.accumulate(partition_statistics[0]);
+
+                for (int t = 1; t < n_threshold+1; ++t)
+                {
+                    right_statistics.accumulate(partition_statistics[t]);
+                }
+
+                double gain = computeInfomationGain(parent_hist, left_statistics, right_statistics);
                 if(gain > best_gain)
                 {
                     best_gain = gain;
                     best_feature = f;
-                    best_thres = threshold[t];
+                    best_thres = threshold[0];
 
                 }
+
+                for(int t = 1; t < n_threshold; ++t)
+                {
+                    left_statistics.accumulate(partition_statistics[t]);
+                    right_statistics.decrease(partition_statistics[t]);
+
+                    gain = computeInfomationGain(parent_hist, left_statistics, right_statistics);
+
+                    if(gain > best_gain)
+                    {
+                        best_gain = gain;
+                        best_feature = f;
+                        best_thres = threshold[t];
+
+                    }
+                }
             }
+
+            if(best_gain <= 0.01)
+            {
+                LeafNode* leaf = new LeafNode(node_index,parent_hist);
+                nodes.push_back(NodePtr(leaf));
+
+                if(is_left)
+                {
+                    nodes[parent_index].setLeftChildIndex(node_index);
+                }
+                else
+                {
+                    nodes[parent_index].setRightChildIndex(node_index);
+                }
+
+                continue;
+            }
+
+            for(int i = from; i < to; ++i)
+            {
+                response[i-from] = (*best_feature)(X[indices[i]]);
+            }
+
+            SplitNode<FeatureType>* split(new SplitNode<FeatureType>(node_index,best_feature, best_thres));
+            nodes.push_back(NodePtr(split));
+
+            int thres_index = partitionByResponse(indices,from, to, response, best_thres);
+
+            que.push(from, thres_index, node_index, true);
+            que.push(thres_index, to, node_index, false);
+
         }
-
-        if(best_gain <= 0.01)
-        {
-            LeafNode* leaf = new LeafNode(n_nodes++,parent_hist);
-            return leaf;
-        }
-
-        for(int i = from; i < to; ++i)
-        {
-            response[i-from] = (*best_feature)(X[indices[i]]);
-        }
-
-        SplitNode<FeatureType>* parent(new SplitNode<FeatureType>(n_nodes++,best_feature, best_thres));
-
-        int thres_index = partitionByResponse(indices,from, to, response, best_thres);
-
-        NodeRawPtr l_child = buildTree(X, y, indices, from, thres_index, factory);
-        NodeRawPtr r_child = buildTree(X, y, indices, thres_index, to, factory);
-        parent->setLeftChild(l_child);
-        parent->setRightChild(r_child);
-        return parent;
     }
 
     const int n_classes;
     const int n_candidate_feat;
     const int n_thres_per_feat;
     int n_nodes;
-    NodePtr root;
+    std::vector<NodePtr> nodes;
 };
