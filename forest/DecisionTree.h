@@ -76,7 +76,7 @@ private:
                          const std::function<FeatureType* ()>& factory)
     {
         std::queue<NodeBuildInfo> que;
-        que.push(NodeBuildInfo(0, X.size(), 0, false, 0));
+        que.push(NodeBuildInfo(0, indices.size(), 0, false, 0));
 
         while(!que.empty())
         {

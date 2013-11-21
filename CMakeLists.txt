@@ -15,8 +15,7 @@ include_directories(${OpenCV_INCLUDE_DIR})
 
 find_package(TBB REQUIRED)
 include_directories(${TBB_INCLUDE_DIR})
-
 file(GLOB HEADERS forest/*.h)
 set(SOURCES main.cpp)
 add_executable(stf ${SOURCES} ${HEADERS})
-target_link_libraries(stf ${OpenCV_LIBRARIES} ${TBB_LIBRARIES})
+target_link_libraries(stf ${OpenCV_LIBS} ${TBB_LIBRARIES})
