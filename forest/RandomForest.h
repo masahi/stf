@@ -97,6 +97,7 @@ public:
     }
 
 private:
+
     const int n_classes;
     const int n_trees;
     std::vector<TreePtr> trees;

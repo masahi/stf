@@ -21,7 +21,7 @@ public:
         : n_classes(n_classes_),
           n_candidate_feat(10),
           n_thres_per_feat(100),
-          n_nodes(0),
+          n_nodes(0)
     {
 
     }
@@ -45,8 +45,8 @@ public:
             const int index = current_node->getNodeIndex();
             SplitNode<FeatureType>* node = dynamic_cast<SplitNode<FeatureType>*>(current_node);
             const double response = node->getFeatureResponse(x);
-            if(response < node->getThreshold()) current_node = nodes[nodes[index]->getLeftChildIndex()];
-            else current_node = nodes[nodes[index]->getRightChildIndex()];
+            if(response < node->getThreshold()) current_node = nodes[nodes[index]->getLeftChildIndex()].get();
+            else current_node = nodes[nodes[index]->getRightChildIndex()].get();
         }
         return dynamic_cast<LeafNode*>(current_node)->getDistribution();
     }
@@ -55,11 +55,12 @@ private:
 
     struct NodeBuildInfo
     {
-        NodeBuildInfo(int from_, int to_, int parent_index_, bool is_left_):
+        NodeBuildInfo(int from_, int to_, int parent_index_, bool is_left_, int depth_):
             from(from_),
             to(to_),
             parent_index(parent_index_),
-            is_left(is_left_)
+            is_left(is_left_),
+            depth(depth_)
         {
 
         }
@@ -68,6 +69,7 @@ private:
         const int to;
         const int parent_index;
         const bool is_left;
+        const int depth;
     };
 
     template <typename FeatureContainer,typename LabelContainer>
@@ -77,7 +79,7 @@ private:
                          const std::function<FeatureType* ()>& factory)
     {
         std::queue<NodeBuildInfo> que;
-        que.push(NodeBuildInfo(0, X.size(), 0));
+        que.push(NodeBuildInfo(0, X.size(), 0, false, 0));
 
         while(!que.empty())
         {
@@ -89,25 +91,8 @@ private:
             const int to = info.to;
             const bool is_left = info.is_left;
             const int node_index = n_nodes++;
-
             const int n_data = to - from;
-
-            if(n_data <=1 )
-            {
-                LeafNode* leaf = new LeafNode(node_index, parent_hist);
-                nodes.push_back(NodePtr(leaf));
-
-                if(is_left)
-                {
-                    nodes[parent_index].setLeftChildIndex(node_index);
-                }
-                else
-                {
-                    nodes[parent_index].setRightChildIndex(node_index);
-                }
-
-                continue;
-            }
+            const int depth = info.depth + 1;
 
             std::vector<double> response(n_data);
             double best_gain = -1;
@@ -128,18 +113,18 @@ private:
                 prev_label = l;
             }
 
-            if(same_label)
+            if(same_label || n_data <= 1)
             {
-                LeafNode* leaf = new LeafNode(node_index, parent_hist);
+                LeafNode* leaf = new LeafNode(node_index, depth, parent_hist);
                 nodes.push_back(NodePtr(leaf));
 
                 if(is_left)
                 {
-                    nodes[parent_index].setLeftChildIndex(node_index);
+                    nodes[parent_index]->setLeftChildIndex(node_index);
                 }
                 else
                 {
-                    nodes[parent_index].setRightChildIndex(node_index);
+                    nodes[parent_index]->setRightChildIndex(node_index);
                 }
 
                 continue;
@@ -223,16 +208,16 @@ private:
 
             if(best_gain <= 0.01)
             {
-                LeafNode* leaf = new LeafNode(node_index,parent_hist);
+                LeafNode* leaf = new LeafNode(node_index, depth, parent_hist);
                 nodes.push_back(NodePtr(leaf));
 
                 if(is_left)
                 {
-                    nodes[parent_index].setLeftChildIndex(node_index);
+                    nodes[parent_index]->setLeftChildIndex(node_index);
                 }
                 else
                 {
-                    nodes[parent_index].setRightChildIndex(node_index);
+                    nodes[parent_index]->setRightChildIndex(node_index);
                 }
 
                 continue;
@@ -243,13 +228,13 @@ private:
                 response[i-from] = (*best_feature)(X[indices[i]]);
             }
 
-            SplitNode<FeatureType>* split(new SplitNode<FeatureType>(node_index,best_feature, best_thres));
+            SplitNode<FeatureType>* split(new SplitNode<FeatureType>(node_index, depth, best_feature, best_thres));
             nodes.push_back(NodePtr(split));
 
             int thres_index = partitionByResponse(indices,from, to, response, best_thres);
 
-            que.push(from, thres_index, node_index, true);
-            que.push(thres_index, to, node_index, false);
+            que.push(NodeBuildInfo(from, thres_index, node_index, true, depth));
+            que.push(NodeBuildInfo(thres_index, to, node_index, false, depth));
 
         }
     }
