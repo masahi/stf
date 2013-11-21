@@ -11,11 +11,13 @@
 #include <vector>
 #include <set>
 #include <tuple>
+#include <map>
 #include <sstream>
 #include <vector>
 #include <Eigen/Core>
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 
 template <typename T>
 using Matrix = Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>;
@@ -216,5 +218,78 @@ int partitionByResponse(std::vector<int>& indices, int from, int to, std::vector
     }
 
     return response[i-from] >= threshold ? i : i+1;
+}
+
+namespace std
+{
+template<> struct less<cv::Vec3b>
+{
+    bool operator() (const cv::Vec3b& lhs, const cv::Vec3b& rhs) const
+    {
+        int index = 0;
+
+        while(true)
+        {
+            if(lhs[index] < rhs[index]) return true;
+            else if(lhs[index] > rhs[index]) return false;
+            ++index;
+        }
+
+        return false;
+
+    }
+};
+}
+
+
+std::tuple<std::vector<cv::Mat>, std::vector<int> > extractPatches(const cv::Mat& img, const cv::Mat& gt, std::map<cv::Vec3b, int>& rgb2label, int patch_size, int subsample = 1, bool WITH_BORDER = false, bool TRANSFORM=1)
+{
+    std::vector<cv::Mat> patches;
+    std::vector<int> labels;
+
+    const int rad = patch_size / 2;
+    const int rows = img.rows;
+    const int cols = img.cols;
+
+    cv::Mat padded;
+    cv::copyMakeBorder(img,padded, rad, rad, rad, rad, cv::BORDER_REFLECT);
+
+    int r_begin, r_end, c_begin, c_end;
+    if(WITH_BORDER)
+    {
+        r_begin = rad;
+        r_end = rows + rad;
+        c_begin = rad;
+        c_end = cols + rad;
+    }
+    else
+    {
+        r_begin = patch_size;
+        r_end = rows;
+        c_begin = patch_size;
+        c_end = cols;
+    }
+
+    int count = 0;
+    for(int r = r_begin; r < r_end; ++r)
+    {
+        for(int c = c_begin; c < c_end; ++c, ++count)
+        {
+            if(count % subsample)
+            {
+               cv::Rect roi(r-rad, c-rad, patch_size, patch_size);
+               patches.push_back(padded(roi));
+               const cv::Vec3b rgb = gt.at<cv::Vec3b>(r-rad,c-rad);
+               labels.push_back(rgb2label[rgb]);
+
+               if(TRANSFORM)
+               {
+
+               }
+            }
+        }
+    }
+
+    return std::make_tuple(patches, labels);
 }
 #endif // UTIL_H

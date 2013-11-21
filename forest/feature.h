@@ -84,22 +84,5 @@ PatchFeature* createPatchFeature(int patch_size)
     return new PatchFeature(patch_size,type, pos1, pos2, channel);
 }
 
-std::vector<cv::Mat> extractPatches(const cv::Mat& img, int patch_size)
-{
-    std::vector<cv::Mat> patches;
-    const int rad = patch_size / 2;
-    const int rows = img.rows;
-    const int cols = img.cols;
-
-    for(int r = 0; r < rows; ++r)
-    {
-        for(int c = 0; c < cols; ++c)
-        {
-
-        }
-    }
-
-    return patches;
-}
 
 #endif // FEATURE_H
