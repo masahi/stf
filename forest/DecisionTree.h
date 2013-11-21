@@ -38,17 +38,16 @@ public:
     template <typename D>
     Vector<double> predictDistribution(const D& x)
     {
-        NodeRawPtr current_node(nodes[0].get());
+    int index = 0;
 
-        while(!current_node->isLeaf())
+        while(!nodes[index]->isLeaf())
         {
-            const int index = current_node->getNodeIndex();
-            SplitNode<FeatureType>* node = dynamic_cast<SplitNode<FeatureType>*>(current_node);
+            SplitNode<FeatureType>* node = dynamic_cast<SplitNode<FeatureType>*>(nodes[index].get());
             const double response = node->getFeatureResponse(x);
-            if(response < node->getThreshold()) current_node = nodes[nodes[index]->getLeftChildIndex()].get();
-            else current_node = nodes[nodes[index]->getRightChildIndex()].get();
+            if(response < node->getThreshold()) index = nodes[index]->getLeftChildIndex();
+            else index = nodes[index]->getRightChildIndex();
         }
-        return dynamic_cast<LeafNode*>(current_node)->getDistribution();
+        return dynamic_cast<LeafNode*>(nodes[index].get())->getDistribution();
     }
 
 private:
@@ -62,7 +61,6 @@ private:
             is_left(is_left_),
             depth(depth_)
         {
-
         }
 
         const int from;
@@ -117,6 +115,7 @@ private:
             {
                 LeafNode* leaf = new LeafNode(node_index, depth, parent_hist);
                 nodes.push_back(NodePtr(leaf));
+                std::cout << nodes.size() << std::endl;
 
                 if(is_left)
                 {

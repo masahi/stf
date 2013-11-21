@@ -41,14 +41,19 @@ public:
     {
         const int data_per_tree = X.size();
 
-        tbb::parallel_for(0,
-                          n_trees,
-                          [&](int i)
-                          {
-                           std::vector<int> indices = randomSamples(X.size(), data_per_tree);
-                           trees[i]->train(X,y, indices,factory);
-                          }
-                          );
+        for(int i = 0; i < n_trees; ++i)
+    {
+           std::vector<int> indices = randomSamples(X.size(), data_per_tree);
+           trees[i]->train(X,y, indices, factory);
+          }
+//        tbb::parallel_for(0,
+//                          n_trees,
+//                          [&](int i)
+//                          {
+//                           std::vector<int> indices = randomSamples(X.size(), data_per_tree);
+//                           trees[i]->train(X,y, indices,factory);
+//                          }
+//                          );
     }
 
 
@@ -57,19 +62,20 @@ public:
     {
         Vector<double> zeros = Vector<double>::Zero(n_classes);
 
-        return 1.0/n_trees *
-                tbb::parallel_reduce(tbb::blocked_range<int>(0,n_trees),
-                                     zeros,
-                                     [&](const tbb::blocked_range<int>& range, Vector<double> init)
-                                     {
-                                       for(int i = range.begin(); i < range.end(); ++i)
-                                       {
-                                          init += trees[i]->predictDistribution(x);
-                                       }
-                                       return init;
-                                     },
-                                     std::plus<Vector<double>>()
-                                     );
+        return trees[0]->predictDistribution(x);
+//        return 1.0/n_trees *
+//                tbb::parallel_reduce(tbb::blocked_range<int>(0,n_trees),
+//                                     zeros,
+//                                     [&](const tbb::blocked_range<int>& range, Vector<double> init)
+//                                     {
+//                                       for(int i = range.begin(); i < range.end(); ++i)
+//                                       {
+//                                          init += trees[i]->predictDistribution(x);
+//                                       }
+//                                       return init;
+//                                     },
+//                                     std::plus<Vector<double>>()
+//                                     );
     }
 
     template <typename T>
@@ -81,6 +87,7 @@ public:
 
         for(int i = 0; i < n_samples; ++i)
         {
+           std::cout << i << std::endl;
            prediction[i] = predict(adapter[i]);
         }
 
