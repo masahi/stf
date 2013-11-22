@@ -19,7 +19,7 @@ public:
 
     DecisionTree(int n_classes_)
         : n_classes(n_classes_),
-          n_candidate_feat(100),
+          n_candidate_feat(10),
           n_thres_per_feat(100),
           n_nodes(0)
     {
@@ -87,7 +87,7 @@ private:
             const int from = info.from;
             const int to = info.to;
             const bool is_left = info.is_left;
-            const int node_index = n_nodes++;
+            const int node_index = n_nodes;
             const int n_data = to - from;
             const int depth = info.depth + 1;
 
@@ -110,10 +110,11 @@ private:
                 prev_label = l;
             }
 
-            if(same_label || n_data <= 1)
+            if(same_label || n_data <= 5)
             {
                 LeafNode* leaf = new LeafNode(node_index, depth, parent_hist);
                 nodes.push_back(NodePtr(leaf));
+                ++n_nodes;
 
                 if(is_left)
                 {
@@ -208,6 +209,7 @@ private:
                 LeafNode* leaf = new LeafNode(node_index, depth, parent_hist);
                 nodes.push_back(NodePtr(leaf));
 
+                ++n_nodes;
                 if(is_left)
                 {
                     nodes[parent_index]->setLeftChildIndex(node_index);
@@ -227,7 +229,7 @@ private:
 
             SplitNode<FeatureType>* split(new SplitNode<FeatureType>(node_index, depth, best_feature, best_thres));
             nodes.push_back(NodePtr(split));
-
+            ++n_nodes;
             if(is_left)
             {
                 nodes[parent_index]->setLeftChildIndex(node_index);
@@ -237,6 +239,10 @@ private:
                 nodes[parent_index]->setRightChildIndex(node_index);
             }
 
+            if(parent_index == 0)
+            {
+                std::cout << nodes[0]->getLeftChildIndex() << "," << nodes[0]->getRightChildIndex() << std::endl;
+            }
             int thres_index = partitionByResponse(indices,from, to, response, best_thres);
 
             que.push(NodeBuildInfo(from, thres_index, node_index, true, depth));

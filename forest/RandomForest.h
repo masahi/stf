@@ -40,20 +40,19 @@ public:
                const std::function<FeatureType* ()>& factory)
     {
         const int data_per_tree = X.size();
-        for(int i = 0; i < n_trees; ++i)
+//        for(int i = 0; i < n_trees; ++i)
+//        {
+//            std::vector<int> indices = randomSamples(X.size(), data_per_tree);
+//            trees[i]->train(X,y, indices, factory);
+//        }
+        tbb::parallel_for(0,
+                          n_trees,
+                          [&](int i)
         {
             std::vector<int> indices = randomSamples(X.size(), data_per_tree);
-            trees[i]->train(X,y, indices, factory);
+            trees[i]->train(X,y, indices,factory);
         }
-//        tbb::parallel_for(0,
-//                          n_trees,
-//                          [&](int i)
-//        {
-//            std::cout << n_trees << "," << i << std::endl;
-//            std::vector<int> indices = randomSamples(X.size(), data_per_tree);
-//            trees[i]->train(X,y, indices,factory);
-//        }
-//        );
+        );
     }
 
 
