@@ -17,9 +17,10 @@ find_package(TBB REQUIRED)
 include_directories(${TBB_INCLUDE_DIR})
 file(GLOB HEADERS forest/*.h)
 set(SOURCES main.cpp)
+set(BOOST_LIBS boost_filesystem boost_program_options)
 
 add_executable(stf ${SOURCES} ${HEADERS})
 target_link_libraries(stf ${OpenCV_LIBS} ${TBB_LIBRARIES})
 
-add_executable(segmentation ${SOURCES} ${HEADERS})
-target_link_libraries(segmentation ${OpenCV_LIBS} ${TBB_LIBRARIES})
+add_executable(segmentation segmentation.cpp ${HEADERS})
+target_link_libraries(segmentation ${OpenCV_LIBS} ${TBB_LIBRARIES} ${BOOST_LIBS})

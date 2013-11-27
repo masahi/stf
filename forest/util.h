@@ -228,7 +228,7 @@ template<> struct less<cv::Vec3b>
     {
         int index = 0;
 
-        while(true)
+        while(index < 3)
         {
             if(lhs[index] < rhs[index]) return true;
             else if(lhs[index] > rhs[index]) return false;
@@ -277,7 +277,7 @@ std::tuple<std::vector<cv::Mat>, std::vector<int> > extractPatches(const cv::Mat
         {
             if(count % subsample)
             {
-               cv::Rect roi(r-rad, c-rad, patch_size, patch_size);
+               cv::Rect roi(c-rad, r-rad, patch_size, patch_size);
                patches.push_back(padded(roi));
                const cv::Vec3b rgb = gt.at<cv::Vec3b>(r-rad,c-rad);
                labels.push_back(rgb2label[rgb]);
