@@ -18,6 +18,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/highgui/highgui.hpp>
 
 template <typename T>
 using Matrix = Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>;
@@ -275,12 +276,20 @@ std::tuple<std::vector<cv::Mat>, std::vector<int> > extractPatches(const cv::Mat
     {
         for(int c = c_begin; c < c_end; ++c, ++count)
         {
-            if(count % subsample)
+            if(count % subsample == 0)
             {
                cv::Rect roi(c-rad, r-rad, patch_size, patch_size);
-               patches.push_back(padded(roi));
-               const cv::Vec3b rgb = gt.at<cv::Vec3b>(r-rad,c-rad);
-               labels.push_back(rgb2label[rgb]);
+               const cv::Vec3b bgr = gt.at<cv::Vec3b>(r-rad,c-rad);
+               if(rgb2label.find(bgr) == rgb2label.end())
+               {
+                   std::cout << (int)bgr[0] << "," << (int)bgr[1] << "," << (int)bgr[2] << std::endl;
+                   std::cout << r-rad << "," << c-rad << std::endl;
+               }
+               else
+               {
+                   labels.push_back(rgb2label.at(bgr));
+                   patches.push_back(padded(roi));
+               }
 
                if(TRANSFORM)
                {

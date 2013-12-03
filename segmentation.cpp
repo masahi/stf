@@ -7,13 +7,13 @@
 #include <boost/timer.hpp>
 #include <util.h>
 #include <map>
-//#include <boost/filesystem.hpp>
+#include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 #include <opencv2/highgui/highgui.hpp>
 
 using namespace cv;
 using namespace std;
-//namespace fs = boost::filesystem;
+namespace fs = boost::filesystem;
 namespace po = boost::program_options;
 
 int main(int argc, char *argv[])
@@ -31,10 +31,12 @@ int main(int argc, char *argv[])
 
     map<Vec3b, int> rgb2label
     {
+        {Vec3b(0,0,0), -1},
         {Vec3b(0,0,128), 0},
         {Vec3b(0,128,0), 1},
         {Vec3b(0,128,128),2},
-        {Vec3b(128,0,0), 3},
+        {Vec3b(128,0,0),3},
+        {Vec3b(128,128,0), 4},
         {Vec3b(128,128,128), 5},
         {Vec3b(0,0,192), 6},
         {Vec3b(0,128,64), 7},
@@ -50,26 +52,59 @@ int main(int argc, char *argv[])
         {Vec3b(128,192,0), 17},
         {Vec3b(128,192,128), 18},
         {Vec3b(0,64,64), 19},
-        {Vec3b(0,64,192), 20}
+        {Vec3b(0,64,192), 20},
+        {Vec3b(0,0,64), 21},
+        {Vec3b(128,0,128),22}
     };
 
-//    const fs::path img_dir(vm["img_dir"].as<string>());
-//    const fs::path gt_dir(vm["gt_dir"].as<string>());
-//    fs::directory_iterator img_file(img_dir);
-//    fs::directory_iterator gt_file(gt_dir);
-//    const int patch_size = vm["patch_size"].as<int>();
+    const fs::path img_dir(vm["img_dir"].as<string>());
+    const fs::path gt_dir(vm["gt_dir"].as<string>());
+    fs::directory_iterator img_file(img_dir);
+    fs::directory_iterator gt_file(gt_dir);
+    const int patch_size = vm["patch_size"].as<int>();
 
-//    for (; img_file != fs::directory_iterator(); ++img_file, ++gt_file)
-//    {
-////        const Mat img = imread(img_file->string());
-////        const Mat gt = imread(gt_file->string());
+    std::vector<string> img_paths;
+    std::vector<string> gt_paths;
 
-////        vector<int> labels;
-////        vector<Mat> patches;
+    for (; img_file != fs::directory_iterator(); ++img_file, ++gt_file)
+    {
+        const string img_path = img_file->path().string();
+        const string gt_path = gt_file->path().string();
 
-////        tie(patches, labels) = extractPatches(img,gt,rgb2label,patch_size);
-//    }
+        img_paths.push_back(img_path);
+        gt_paths.push_back(gt_path);
+    }
+
+    std::sort(img_paths.begin(), img_paths.end());
+    std::sort(gt_paths.begin(), gt_paths.end());
+
+    vector<int> all_labels;
+    vector<Mat> all_patches;
+    for(int i = 0; i < img_paths.size(); ++i)
+    {
+        const Mat img = imread(img_paths[i]);
+        const Mat gt = imread(gt_paths[i]);
+
+
+        vector<int> labels;
+        vector<Mat> patches;
+
+        tie(patches, labels) = extractPatches(img,gt,rgb2label,patch_size,3);
+
+        all_labels.insert(all_labels.end(), labels.begin(), labels.end());
+        all_patches.insert(all_patches.end(), patches.begin(), patches.end());
+    }
+
+    std::cout << all_patches.size() << std::endl;
+
+    const std::function<PatchFeature* ()> factory = std::bind(createPatchFeature, patch_size);
+    const int n_trees = 1;
+    const int n_classes = rgb2label.size();
+
+    RandomForest<PatchFeature> forest(n_trees, n_classes);
+    forest.train(all_patches, all_labels, factory);
 
     return 0;
 }
+
 
