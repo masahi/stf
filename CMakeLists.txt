@@ -18,7 +18,7 @@ set(TBB_LIBRARIES tbb_debug tbbmalloc_debug)
 
 set(GCO_DIR "" CACHE FILEPATH "")
 include_directories(${GCO_DIR})
-link_directories(${GCO_DIR}/build)
+link_directories(${GCO_DIR}/build/Debug)
 set(GCO_LIB gco)
 
 set(BOOST_DIR /home/masa/boost_1_55_0 CACHE FILEPATH "")

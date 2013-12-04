@@ -326,7 +326,7 @@ std::tuple<std::vector<cv::Mat>, std::vector<int> > extractPatches(const cv::Mat
 
 
 template <typename T>
-std::vector<T>& operator+=(std::vector<T>& a, const std::vector<T>& b)
+std::vector<T>& operator+=(std::vector<T>& a, std::vector<T>& b)
 {
 	const size_t n = a.size();
 	assert(b.size() == n);
@@ -336,16 +336,16 @@ std::vector<T>& operator+=(std::vector<T>& a, const std::vector<T>& b)
 }
 
 template <typename T1, typename T2>
-std::vector<T2> operator*(T1 coeff, const std::vector<T2>& v)
+std::vector<T2> operator*(T1 coeff, std::vector<T2>& v)
 {
 	const size_t n = v.size();
 	std::vector<T2> multiplied(n);
-	VectorMapper<T2>(&multiplied, n) = coeff * VectorMapper<T2>(&v[0], n);
+	VectorMapper<T2>(&multiplied[0], n) = coeff * VectorMapper<T2>(&v[0], n);
 	return multiplied;
 }
 
 template <typename T>
-std::vector<T> operator+(const std::vector<T>& a, const std::vector<T>& b) 
+std::vector<T> operator+(std::vector<T>& a, std::vector<T>& b)
 {
 	const size_t n = a.size();
 	assert(b.size() == n);
@@ -366,5 +366,12 @@ int argmin(const std::vector<T>& v)
 {
 	return std::min_element(v.begin(), v.end()) - v.begin();
 }
+
+template <typename T>
+void append(std::vector<T>& a, const std::vector<T>& b)
+{
+	a.insert(a.end(), b.begin(), b.end());
+}
+
 
 #endif // UTIL_H
