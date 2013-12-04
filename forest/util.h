@@ -27,28 +27,34 @@ template <typename T>
 using Vector = Eigen::Matrix<T, Eigen::Dynamic, 1>;
 
 template <typename T>
+using MatrixMapper = Eigen::Map<Matrix<T>>;
+
+template <typename T>
+using VectorMapper = Eigen::Map<Vector<T>>;
+
+template <typename T>
 class EigenMatrixAdapter
 {
 public:
 
-    EigenMatrixAdapter(const Matrix<T>& mat):
-        matrix(mat)
-    {
-    }
+	EigenMatrixAdapter(const Matrix<T>& mat) :
+		matrix(mat)
+	{
+	}
 
-    const size_t size() const
-    {
-        return matrix.rows();
-    }
+	const size_t size() const
+	{
+		return matrix.rows();
+	}
 
-    Vector<T> operator[](int index) const
-    {
-        return matrix.row(index).transpose();
-    }
+	Vector<T> operator[](int index) const
+	{
+		return matrix.row(index).transpose();
+	}
 
 private:
 
-    const Matrix<T>& matrix;
+	const Matrix<T>& matrix;
 };
 
 template <typename T>
@@ -56,249 +62,309 @@ class EigenVectorAdapter
 {
 public:
 
-    EigenVectorAdapter(const Vector<T>& vec):
-        vector(vec)
-    {
-    }
+	EigenVectorAdapter(const Vector<T>& vec) :
+		vector(vec)
+	{
+	}
 
-    const size_t size() const
-    {
-        return vector.rows();
-    }
+	const size_t size() const
+	{
+		return vector.rows();
+	}
 
-    T operator[](int index) const
-    {
-        return vector(index);
-    }
+	T operator[](int index) const
+	{
+		return vector(index);
+	}
 
 private:
 
-    const Vector<T>& vector;
+	const Vector<T>& vector;
 };
 
 int randInt(int a, int b)
 {
-    std::random_device seed;
-    std::default_random_engine engine(seed());
-    std::uniform_int_distribution<> dist(a, b-1);
-    return dist(engine);
+	std::random_device seed;
+	std::default_random_engine engine(seed());
+	std::uniform_int_distribution<> dist(a, b - 1);
+	return dist(engine);
 }
 
 double computeInfomationGain(const Histogram& parent, const Histogram& left, const Histogram& right)
 {
-    const int n_classes = parent.getNumberOfBins();
-    std::vector<double> parent_prob(n_classes,0);
-    std::vector<double> left_prob(n_classes,0);
-    std::vector<double> right_prob(n_classes,0);
-    double parent_entoropy = 0;
-    for(int i = 0; i < n_classes; ++i)
-    {
-        parent_prob[i] = static_cast<double>(parent.getCounts(i)) / parent.getNumberOfSamples();
-        left_prob[i] = static_cast<double>(left.getCounts(i)) / left.getNumberOfSamples();
-        right_prob[i] = static_cast<double>(right.getCounts(i)) / right.getNumberOfSamples();
+	const int n_classes = parent.getNumberOfBins();
+	std::vector<double> parent_prob(n_classes, 0);
+	std::vector<double> left_prob(n_classes, 0);
+	std::vector<double> right_prob(n_classes, 0);
+	double parent_entoropy = 0;
+	for (int i = 0; i < n_classes; ++i)
+	{
+		parent_prob[i] = static_cast<double>(parent.getCounts(i)) / parent.getNumberOfSamples();
+		left_prob[i] = static_cast<double>(left.getCounts(i)) / left.getNumberOfSamples();
+		right_prob[i] = static_cast<double>(right.getCounts(i)) / right.getNumberOfSamples();
 
-        if(parent_prob[i] > 0)
-        {
-            parent_entoropy += -parent_prob[i] * std::log2(parent_prob[i]);
-        }
-    }
+		if (parent_prob[i] > 0)
+		{
+			parent_entoropy += -parent_prob[i] * std::log2(parent_prob[i]);
+		}
+	}
 
-    double left_entoropy = 0;
-    double right_entoropy = 0;
+	double left_entoropy = 0;
+	double right_entoropy = 0;
 
-    for (int i = 0; i < n_classes; ++i) {
-        if(left_prob[i] > 0) left_entoropy += -left_prob[i] * std::log2(left_prob[i]);
-        if(right_prob[i] > 0) right_entoropy += -right_prob[i] * std::log2(right_prob[i]);
-    }
+	for (int i = 0; i < n_classes; ++i) {
+		if (left_prob[i] > 0) left_entoropy += -left_prob[i] * std::log2(left_prob[i]);
+		if (right_prob[i] > 0) right_entoropy += -right_prob[i] * std::log2(right_prob[i]);
+	}
 
-    double gain = parent_entoropy - static_cast<double>(left.getNumberOfSamples()) / parent.getNumberOfSamples() * left_entoropy
-            - static_cast<double>(right.getNumberOfSamples()) / parent.getNumberOfSamples() * right_entoropy;
+	double gain = parent_entoropy - static_cast<double>(left.getNumberOfSamples()) / parent.getNumberOfSamples() * left_entoropy
+		- static_cast<double>(right.getNumberOfSamples()) / parent.getNumberOfSamples() * right_entoropy;
 
-    return gain;
+	return gain;
 }
 
 
 std::vector<int> randomSamples(int m, int n)
 {
-    std::vector<int> indices(n);
-//    std::iota(indices.begin(), indices.end(), 0);
-//    std::random_shuffle(indices.begin(), indices.end());
+	std::vector<int> indices(n);
+	//    std::iota(indices.begin(), indices.end(), 0);
+	//    std::random_shuffle(indices.begin(), indices.end());
 
-    for (int i = 0; i < n; ++i) {
-        indices[i] = randInt(0,m);
-    }
-    return indices;
+	for (int i = 0; i < n; ++i) {
+		indices[i] = randInt(0, m);
+	}
+	return indices;
 }
 
 template <typename T>
-std::tuple<std::vector<std::vector<T>>,std::vector<int>> readLibsvm(const std::string& file, int dim)
+std::tuple<std::vector<std::vector<T>>, std::vector<int>> readLibsvm(const std::string& file, int dim)
 {
-    std::ifstream ifs(file.c_str());
-    std::string buf;
-    std::vector<std::string> line;
-    std::vector<std::vector<T>> features;
-    std::vector<int> label;
-    std::vector<T> feature(dim,0);
+	std::ifstream ifs(file.c_str());
+	std::string buf;
+	std::vector<std::string> line;
+	std::vector<std::vector<T>> features;
+	std::vector<int> label;
+	std::vector<T> feature(dim, 0);
 
-    while (std::getline(ifs, buf))
-    {
-       line.clear();
-       boost::split(line, buf, boost::is_any_of(" \n\t"));
-       int c = boost::lexical_cast<int>(line[0]);
-       label.push_back(c);
-       for (int i = 1; i < line.size(); ++i)
-       {
-         std::istringstream is(line[i]);
-         int f;
-         T v;
-         char colon;
+	while (std::getline(ifs, buf))
+	{
+		line.clear();
+		boost::split(line, buf, boost::is_any_of(" \n\t"));
+		int c = boost::lexical_cast<int>(line[0]);
+		label.push_back(c);
+		for (int i = 1; i < line.size(); ++i)
+		{
+			std::istringstream is(line[i]);
+			int f;
+			T v;
+			char colon;
 
-         is >> f >> colon >> v;
-         assert(f <= dim);
+			is >> f >> colon >> v;
+			assert(f <= dim);
 
-         feature[f-1] = v;
-       }
+			feature[f - 1] = v;
+		}
 
-       features.push_back(feature);
-       }
+		features.push_back(feature);
+	}
 
-    auto iter = std::find(label.begin(), label.end(), 0);
-    if (iter == label.end())
-    {
-       std::transform(label.begin(), label.end(), label.begin(), [](int i){return i-1;});
-    }
-    std::replace(label.begin(), label.end(),-2,1);
+	auto iter = std::find(label.begin(), label.end(), 0);
+	if (iter == label.end())
+	{
+		std::transform(label.begin(), label.end(), label.begin(), [](int i){return i - 1; });
+	}
+	std::replace(label.begin(), label.end(), -2, 1);
 
-    return std::make_tuple(features, label);
+	return std::make_tuple(features, label);
 }
 
 template <typename T>
 std::tuple<Matrix<T>, Eigen::VectorXi> readLibsvmEigen(const std::string& file, int dim)
 {
-    std::vector<std::vector<T>> X;
-    std::vector<int> y;
+	std::vector<std::vector<T>> X;
+	std::vector<int> y;
 
-    std::tie(X,y) = readLibsvm<double>(file,dim);
-    Matrix<T> m(X.size(), dim);
-    for (int i = 0; i < y.size(); ++i)
-    {
-       Vector<T> vec = Eigen::Map<Vector<T>>(&X[i][0], dim);
-       m.row(i) = vec.transpose();
-    }
+	std::tie(X, y) = readLibsvm<double>(file, dim);
+	Matrix<T> m(X.size(), dim);
+	for (int i = 0; i < y.size(); ++i)
+	{
+		Vector<T> vec = Eigen::Map<Vector<T>>(&X[i][0], dim);
+		m.row(i) = vec.transpose();
+	}
 
-    Eigen::VectorXi l = Eigen::Map<Eigen::VectorXi>(&y[0], y.size());
+	Eigen::VectorXi l = Eigen::Map<Eigen::VectorXi>(&y[0], y.size());
 
-    return std::make_tuple(m, l);
+	return std::make_tuple(m, l);
 }
 
 
 template<typename T>
 int countUnique(const std::vector<T>& vec)
 {
-   std::set<T> s(vec.begin(), vec.end());
-   return s.size();
+	std::set<T> s(vec.begin(), vec.end());
+	return s.size();
 
 }
 
 
 int partitionByResponse(std::vector<int>& indices, int from, int to, std::vector<double>& response, double threshold)
 {
-    assert(from < to);
-    int i = from;
-    int j = to-1;
+	assert(from < to);
+	int i = from;
+	int j = to - 1;
 
-    while(i <= j)
-    {
-        if(response[i-from] >= threshold)
-        {
-            std::swap(indices[i], indices[j]);
-            std::swap(response[i-from], response[j-from]);
-            --j;
-        }
-        else ++i;
-    }
+	while (i <= j)
+	{
+		if (response[i - from] >= threshold)
+		{
+			std::swap(indices[i], indices[j]);
+			std::swap(response[i - from], response[j - from]);
+			--j;
+		}
+		else ++i;
+	}
 
-    return response[i-from] >= threshold ? i : i+1;
+	return response[i - from] >= threshold ? i : i + 1;
 }
 
 namespace std
 {
-template<> struct less<cv::Vec3b>
-{
-    bool operator() (const cv::Vec3b& lhs, const cv::Vec3b& rhs) const
-    {
-        int index = 0;
+	template<>
+	struct less<cv::Vec3b>
+	{
+		bool operator()(const cv::Vec3b& lhs, const cv::Vec3b& rhs) const
+		{
+			int index = 0;
 
-        while(index < 3)
-        {
-            if(lhs[index] < rhs[index]) return true;
-            else if(lhs[index] > rhs[index]) return false;
-            ++index;
-        }
+			while (index < 3)
+			{
+				if (lhs[index] < rhs[index]) return true;
+				else if (lhs[index] > rhs[index]) return false;
+				++index;
+			}
 
-        return false;
+			return false;
 
-    }
-};
+		}
+	};
+
+	//template <typename T>
+	//struct plus<std::vector<T>>
+	//{
+	//	std::vector<T> operator+(const std::vector<T>& a, const std::vector<T>& b) const
+	//	{
+	//		const size_t n = a.size();
+	//		assert(b.size() == n);
+
+	//		std::vector<T> sum(n);
+	//		VectorMapper<T>(&sum[0], n) = VectorMapper<T>(&a[0], n) + VectorMapper<T>(&b[0], n);
+	//		return sum;
+	//	}
+
+	//};
 }
 
 
-std::tuple<std::vector<cv::Mat>, std::vector<int> > extractPatches(const cv::Mat& img, const cv::Mat& gt, std::map<cv::Vec3b, int>& rgb2label, int patch_size, int subsample = 1, bool WITH_BORDER = false, bool TRANSFORM=1)
+std::tuple<std::vector<cv::Mat>, std::vector<int> > extractPatches(const cv::Mat& img, const cv::Mat& gt, std::map<cv::Vec3b, int>& rgb2label, int patch_size, int subsample = 1, bool WITH_BORDER = false, bool TRANSFORM = 1)
 {
-    std::vector<cv::Mat> patches;
-    std::vector<int> labels;
+	std::vector<cv::Mat> patches;
+	std::vector<int> labels;
 
-    const int rad = patch_size / 2;
-    const int rows = img.rows;
-    const int cols = img.cols;
+	const int rad = patch_size / 2;
+	const int rows = img.rows;
+	const int cols = img.cols;
 
-    cv::Mat padded;
-    cv::copyMakeBorder(img,padded, rad, rad, rad, rad, cv::BORDER_REFLECT);
+	cv::Mat padded;
+	cv::copyMakeBorder(img, padded, rad, rad, rad, rad, cv::BORDER_REFLECT);
 
-    int r_begin, r_end, c_begin, c_end;
-    if(WITH_BORDER)
-    {
-        r_begin = rad;
-        r_end = rows + rad;
-        c_begin = rad;
-        c_end = cols + rad;
-    }
-    else
-    {
-        r_begin = patch_size;
-        r_end = rows;
-        c_begin = patch_size;
-        c_end = cols;
-    }
+	int r_begin, r_end, c_begin, c_end;
+	if (WITH_BORDER)
+	{
+		r_begin = rad;
+		r_end = rows + rad;
+		c_begin = rad;
+		c_end = cols + rad;
+	}
+	else
+	{
+		r_begin = patch_size;
+		r_end = rows;
+		c_begin = patch_size;
+		c_end = cols;
+	}
 
-    int count = 0;
-    for(int r = r_begin; r < r_end; ++r)
-    {
-        for(int c = c_begin; c < c_end; ++c, ++count)
-        {
-            if(count % subsample == 0)
-            {
-               cv::Rect roi(c-rad, r-rad, patch_size, patch_size);
-               const cv::Vec3b bgr = gt.at<cv::Vec3b>(r-rad,c-rad);
-               if(rgb2label.find(bgr) == rgb2label.end())
-               {
-                   std::cout << (int)bgr[0] << "," << (int)bgr[1] << "," << (int)bgr[2] << std::endl;
-                   std::cout << r-rad << "," << c-rad << std::endl;
-               }
-               else
-               {
-                   labels.push_back(rgb2label.at(bgr));
-                   patches.push_back(padded(roi));
-               }
+	int count = 0;
+	for (int r = r_begin; r < r_end; ++r)
+	{
+		for (int c = c_begin; c < c_end; ++c, ++count)
+		{
+			if (count % subsample == 0)
+			{
+				cv::Rect roi(c - rad, r - rad, patch_size, patch_size);
+				const cv::Vec3b bgr = gt.at<cv::Vec3b>(r - rad, c - rad);
+				if (rgb2label.find(bgr) == rgb2label.end())
+				{
+					std::cout << (int)bgr[0] << "," << (int)bgr[1] << "," << (int)bgr[2] << std::endl;
+					std::cout << r - rad << "," << c - rad << std::endl;
+				}
+				else
+				{
+					labels.push_back(rgb2label.at(bgr));
+					patches.push_back(padded(roi));
+				}
 
-               if(TRANSFORM)
-               {
+				if (TRANSFORM)
+				{
 
-               }
-            }
-        }
-    }
+				}
+			}
+		}
+	}
 
-    return std::make_tuple(patches, labels);
+	return std::make_tuple(patches, labels);
 }
+
+
+template <typename T>
+std::vector<T>& operator+=(std::vector<T>& a, const std::vector<T>& b)
+{
+	const size_t n = a.size();
+	assert(b.size() == n);
+
+	VectorMapper<T>(&a[0], n) += VectorMapper<T>(&b[0], n);
+	return a;
+}
+
+template <typename T1, typename T2>
+std::vector<T2> operator*(T1 coeff, const std::vector<T2>& v)
+{
+	const size_t n = v.size();
+	std::vector<T2> multiplied(n);
+	VectorMapper<T2>(&multiplied, n) = coeff * VectorMapper<T2>(&v[0], n);
+	return multiplied;
+}
+
+template <typename T>
+std::vector<T> operator+(const std::vector<T>& a, const std::vector<T>& b) 
+{
+	const size_t n = a.size();
+	assert(b.size() == n);
+
+	std::vector<T> sum(n);
+	VectorMapper<T>(&sum[0], n) = VectorMapper<T>(&a[0], n) + VectorMapper<T>(&b[0], n);
+	return sum;
+}
+
+template <typename T>
+int argmax(const std::vector<T>& v)
+{
+	return std::max_element(v.begin(), v.end()) - v.begin();
+}
+
+template <typename T>
+int argmin(const std::vector<T>& v)
+{
+	return std::min_element(v.begin(), v.end()) - v.begin();
+}
+
 #endif // UTIL_H

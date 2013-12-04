@@ -36,7 +36,7 @@ public:
     }
 
     template <typename D>
-    Vector<double> predictDistribution(const D& x)
+    std::vector<double> predictDistribution(const D& x)
     {
         int index = 0;
         while(!nodes[index]->isLeaf())
@@ -70,7 +70,7 @@ private:
     };
 
     template <typename FeatureContainer,typename LabelContainer>
-    NodeRawPtr buildTree(const FeatureContainer& X,
+    void buildTree(const FeatureContainer& X,
                          const LabelContainer& y,
                          std::vector<int>& indices,
                          const std::function<FeatureType* ()>& factory)

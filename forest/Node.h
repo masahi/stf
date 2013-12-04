@@ -51,21 +51,21 @@ public:
    LeafNode(int node_index, int depth, const Histogram& h):
        Node(node_index, true, depth),
        hist(h),
-       dist(Vector<double>(hist.getNumberOfBins()))
+	   dist(h.getNumberOfBins(),0)
    {
       const int n_samples = hist.getNumberOfSamples();
       const int n_bins = hist.getNumberOfBins();
       for (int i = 0; i < n_bins; ++i) {
-         dist(i) = static_cast<double>(hist.getCounts(i)) / n_samples;
+         dist[i] = static_cast<double>(hist.getCounts(i)) / n_samples;
       }
    }
 
-   const Vector<double>& getDistribution() const { return dist;}
+   const std::vector<double>& getDistribution() const { return dist;}
 
 private:
 
    const Histogram& hist;
-   Vector<double> dist;
+   std::vector<double> dist;
 };
 
 template <typename FeatureType>

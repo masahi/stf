@@ -57,20 +57,14 @@ public:
 
 
     template <typename D>
-    Vector<double> predictDistribution(const D& x)
+    std::vector<double> predictDistribution(const D& x)
     {
-        Vector<double> zeros = Vector<double>::Zero(n_classes);
-
-//        for (int i = 0; i < n_trees; ++i) {
-//            zeros += trees[i]->predictDistribution(x);
-//        }
-
-//        return zeros;
+		std::vector<double> zeros(n_classes, 0);
 
         return 1.0/n_trees *
                 tbb::parallel_reduce(tbb::blocked_range<int>(0,n_trees),
                                      zeros,
-                                     [&](const tbb::blocked_range<int>& range, Vector<double> init)
+                                     [&](const tbb::blocked_range<int>& range, std::vector<double> init)
         {
             for(int i = range.begin(); i < range.end(); ++i)
             {
@@ -78,7 +72,7 @@ public:
             }
             return init;
         },
-        std::plus<Vector<double>>()
+        std::plus<std::vector<double>>()
         );
     }
 
@@ -100,10 +94,8 @@ public:
     template <typename D>
     int predict(const D& x)
     {
-        Vector<double> dist = predictDistribution(x);
-        int argmax;
-        dist.maxCoeff(&argmax);
-        return argmax;
+        std::vector<double> dist = predictDistribution(x);
+        return argmax(dist);
     }
 
 private:
