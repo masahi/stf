@@ -36,7 +36,7 @@ public:
     }
 
     template <typename D>
-    std::vector<double> predictDistribution(const D& x)
+    std::vector<double> predictDistribution(const D& x) const
     {
         int index = 0;
         while(!nodes[index]->isLeaf())

@@ -14,11 +14,15 @@ include_directories(${TBB_INCLUDE_DIR})
 set(TBB_LIB_DIR /usr/lib/ CACHE FILEPATH "")
 link_directories(${TBB_LIB_DIR})
 
-set(TBB_LIBRARIES tbb_debug tbbmalloc_debug)
+if(WIN32)
+ set(TBB_LIBRARIES tbb_debug tbbmalloc_debug)
+else()
+ set(TBB_LIBRARIES tbb tbbmalloc)
+endif()
 
-set(GCO_DIR "" CACHE FILEPATH "")
+set(GCO_DIR /home/masa/gco CACHE FILEPATH "")
 include_directories(${GCO_DIR})
-link_directories(${GCO_DIR}/build/Debug)
+link_directories(${GCO_DIR}/build/Debug ${GCO_DIR}/build)
 set(GCO_LIB gco)
 
 set(BOOST_DIR /home/masa/boost_1_55_0 CACHE FILEPATH "")
