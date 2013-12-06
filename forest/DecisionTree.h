@@ -77,6 +77,7 @@ private:
     {
         std::queue<NodeBuildInfo> que;
         que.push(NodeBuildInfo(0, indices.size(), 0, false, 0));
+        bool is_root = true;
 
         while(!que.empty())
         {
@@ -230,7 +231,14 @@ private:
             SplitNode<FeatureType>* split(new SplitNode<FeatureType>(node_index, depth, best_feature, best_thres));
             nodes.push_back(NodePtr(split));
             ++n_nodes;
-            if(is_left)
+
+            if(is_root)
+            {
+                is_root = false;
+            }
+            else
+            {
+                if(is_left)
             {
                 nodes[parent_index]->setLeftChildIndex(node_index);
             }
@@ -238,11 +246,8 @@ private:
             {
                 nodes[parent_index]->setRightChildIndex(node_index);
             }
-
-            if(parent_index == 0)
-            {
-                std::cout << nodes[0]->getLeftChildIndex() << "," << nodes[0]->getRightChildIndex() << std::endl;
             }
+
             int thres_index = partitionByResponse(indices,from, to, response, best_thres);
 
             que.push(NodeBuildInfo(from, thres_index, node_index, true, depth));

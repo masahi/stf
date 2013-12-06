@@ -17,12 +17,12 @@ class RandomForest
 public:
 
 	typedef DecisionTree<FeatureType> Tree;
-	typedef std::shared_ptr<Tree> TreePtr;
+    typedef std::unique_ptr<Tree> TreePtr;
 
 	RandomForest(int n_classes_, int n_trees_ = 1)
 		:n_classes(n_classes_),
 		n_trees(n_trees_),
-		trees(n_trees, TreePtr(new Tree(n_classes)))
+        trees(n_trees, Tree(n_classes))
 	{
 	}
 
@@ -40,19 +40,15 @@ public:
 		const std::function<FeatureType* ()>& factory)
 	{
 		const int data_per_tree = X.size();
-		//        for(int i = 0; i < n_trees; ++i)
-		//        {
-		//            std::vector<int> indices = randomSamples(X.size(), data_per_tree);
-		//            trees[i]->train(X,y, indices, factory);
-		//        }
-		tbb::parallel_for(0,
-			n_trees,
-			[&](int i)
-		{
-			std::vector<int> indices = randomSamples(X.size(), data_per_tree);
-			trees[i]->train(X, y, indices, factory);
-		}
-		);
+
+        tbb::parallel_for(0,
+            n_trees,
+            [&](int i)
+        {
+            std::vector<int> indices = randomSamples(X.size(), data_per_tree);
+            trees[i].train(X, y, indices, factory);
+        }
+        );
 	}
 
 
@@ -68,7 +64,7 @@ public:
 		{
 			for (int i = range.begin(); i < range.end(); ++i)
 			{
-				std::vector<double> dist = trees[i]->predictDistribution(x);
+                std::vector<double> dist = trees[i].predictDistribution(x);
 				init += dist;
 			}
 			return init;
@@ -105,5 +101,5 @@ private:
 
 	const int n_classes;
 	const int n_trees;
-	std::vector<TreePtr> trees;
+    std::vector<Tree> trees;
 };
