@@ -17,10 +17,11 @@ public:
     typedef Node::NodePtr NodePtr;
     typedef Node::NodeRawPtr NodeRawPtr;
 
-    DecisionTree(int n_classes_)
+    DecisionTree(int n_classes_, int n_features, int n_thresholds, int max_d)
         : n_classes(n_classes_),
-          n_candidate_feat(10),
-          n_thres_per_feat(100),
+          n_candidate_feat(n_features),
+          n_thres_per_feat(n_thresholds),
+          max_depth(max_d),
           n_nodes(0)
     {
 
@@ -97,7 +98,16 @@ private:
             std::shared_ptr<FeatureType> best_feature(factory());
             double best_thres;
 
-            std::vector<double> threshold(n_thres_per_feat+1,std::numeric_limits<double>::max());
+            int n_threshold;
+            if(n_thres_per_feat == -1)
+            {
+                n_threshold = n_data - 1;
+            }
+            else
+            {
+                n_threshold = n_thres_per_feat - 1;
+            }
+            std::vector<double> threshold(n_threshold + 1);//,std::numeric_limits<double>::max());
 
             Histogram parent_hist(n_classes);
             int prev_label = y[indices[from]];
@@ -111,7 +121,7 @@ private:
                 prev_label = l;
             }
 
-            if(same_label || n_data <= 5)
+            if(max_depth <= depth || same_label || n_data <= 5)
             {
                 LeafNode* leaf = new LeafNode(node_index, depth, parent_hist);
                 nodes.push_back(NodePtr(leaf));
@@ -130,7 +140,6 @@ private:
             }
 
 
-            int n_threshold;
             for(int i = 0; i < n_candidate_feat; ++i)
             {
                 std::shared_ptr<FeatureType> f(factory());
@@ -138,23 +147,21 @@ private:
                 {
                     response[j-from] = (*f)(X[indices[j]]);
                 }
-                if(n_data > n_thres_per_feat)
+                if(n_data != n_threshold)
                 {
-                    for(int j = 0; j < n_thres_per_feat+1; ++j)
+                    for(int j = 0; j < threshold.size(); ++j)
                     {
                         threshold[j] = response[randInt(0, n_data)];
-                        n_threshold = n_thres_per_feat;
                     }
                 }
                 else
                 {
-                    std::copy(response.begin(), response.begin()+n_data, threshold.begin());
-                    n_threshold = n_data - 1;
+                    std::copy(response.begin(), response.end(), threshold.begin());
                 }
 
-                std::sort(threshold.begin(), threshold.begin()+n_threshold);
+                std::sort(threshold.begin(), threshold.end());
 
-                if(threshold[0] == threshold[n_threshold-1])
+                if(threshold[0] == threshold[n_threshold])
                 {
                     continue;
                 }
@@ -164,17 +171,17 @@ private:
                     threshold[j] = threshold[j] + (double)rand()/RAND_MAX * (threshold[j+1] - threshold[j]);
                 }
 
-                std::vector<Histogram> partition_statistics(n_threshold+1, Histogram(n_classes));
+                std::vector<Histogram> partition_statistics(threshold.size(), Histogram(n_classes));
                 for(int j = from; j < to; ++j)
                 {
-                    int t = std::upper_bound(threshold.begin(), threshold.begin()+n_threshold, response[j-from]) - threshold.begin();
+                    int t = std::upper_bound(threshold.begin(), threshold.begin() + n_threshold, response[j-from]) - threshold.begin();
                     partition_statistics[t].accumulate(y[indices[j]]);
                 }
 
                 Histogram left_statistics(n_classes), right_statistics(n_classes);
                 left_statistics.accumulate(partition_statistics[0]);
 
-                for (int t = 1; t < n_threshold+1; ++t)
+                for (int t = 1; t < threshold.size(); ++t)
                 {
                     right_statistics.accumulate(partition_statistics[t]);
                 }
@@ -259,6 +266,7 @@ private:
     const int n_classes;
     const int n_candidate_feat;
     const int n_thres_per_feat;
+    const int max_depth;
     int n_nodes;
     std::vector<NodePtr> nodes;
 };

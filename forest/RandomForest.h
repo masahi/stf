@@ -7,6 +7,7 @@
 #include <functional>
 #include <numeric>
 #include <omp.h>
+#include <limits>
 #include <tbb/parallel_for.h>
 #include <tbb/parallel_reduce.h>
 #include <tbb/blocked_range.h>
@@ -19,10 +20,10 @@ public:
 	typedef DecisionTree<FeatureType> Tree;
     typedef std::unique_ptr<Tree> TreePtr;
 
-	RandomForest(int n_classes_, int n_trees_ = 1)
+    RandomForest(int n_classes_, int n_trees_ = 1, int n_features = 400, int n_thresholds= -1, int max_depth = std::numeric_limits<int>::max())
 		:n_classes(n_classes_),
 		n_trees(n_trees_),
-        trees(n_trees, Tree(n_classes))
+        trees(n_trees, Tree(n_classes, n_features, n_thresholds, max_depth))
 	{
 	}
 
