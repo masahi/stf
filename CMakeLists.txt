@@ -9,6 +9,9 @@ SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
 find_package(OpenCV REQUIRED)
 include_directories(${OpenCV_INCLUDE_DIRS})
 
+find_package(ITK REQUIRED)
+include(${ITK_USE_FILE})
+
 set(TBB_INCLUDE_DIR /usr/include/ CACHE FILEPATH "")
 include_directories(${TBB_INCLUDE_DIR})
 set(TBB_LIB_DIR /usr/lib/ CACHE FILEPATH "")
@@ -39,10 +42,13 @@ set(EIGEN_DIR /usr/local/include CACHE FILEPATH "")
 include_directories(${EIGEN_DIR})
 
 file(GLOB HEADERS forest/*.h)
-set(LIBRARIES ${OpenCV_LIBS} ${TBB_LIBRARIES} ${BOOST_LIBS} ${GCO_LIB})
+set(LIBRARIES ${OpenCV_LIBS} ${TBB_LIBRARIES} ${BOOST_LIBS} ${GCO_LIB} ${ITK_LIBRARIES})
 
 add_executable(test test.cpp ${HEADERS})
 target_link_libraries(test ${LIBRARIES})
 
-add_executable(segmentation segmentation.cpp ${HEADERS})
-target_link_libraries(segmentation ${LIBRARIES})
+add_executable(msrc msrc.cpp ${HEADERS})
+target_link_libraries(msrc ${LIBRARIES})
+
+add_executable(tumor tumor.cpp ${HEADERS})
+target_link_libraries(tumor ${LIBRARIES})
