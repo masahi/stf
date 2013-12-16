@@ -93,7 +93,6 @@ int main(int argc, char *argv[])
         const Mat img = imread(img_paths[i]);
         const Mat gt = imread(gt_paths[i]);
 
-
         vector<int> labels;
         vector<Mat> patches;
 
@@ -115,15 +114,15 @@ int main(int argc, char *argv[])
     const std::function<PatchFeature* ()> factory = std::bind(createPatchFeature, patch_size);
 
     const int n_classes = msrc_config.size();
-    const int n_trees = 5;
-    const int n_features = 400;//static_cast<int>(std::sqrt(feature_dim));
+    const int n_trees = 1;
+    const int n_features = 100;//static_cast<int>(std::sqrt(feature_dim));
     const int n_thres = 5;
     const int max_depth = 10;
     RandomForest<PatchFeature> forest(n_classes, n_trees, n_features, n_thres, max_depth);
 
     forest.train(all_patches, all_labels, factory);
 
-    std::cout << "Done trainging\n";
+    std::cout << "Done training\n";
 
     int n_tests = 0;
     std::vector<int> n_tests_per_class(n_classes - 1, 0);

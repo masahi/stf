@@ -43,12 +43,13 @@ include_directories(${EIGEN_DIR})
 
 file(GLOB HEADERS forest/*.h)
 set(LIBRARIES ${OpenCV_LIBS} ${TBB_LIBRARIES} ${BOOST_LIBS} ${GCO_LIB} ${ITK_LIBRARIES})
+#set(LIBRARIES ${OpenCV_LIBS} ${TBB_LIBRARIES} ${BOOST_LIBS} ${ITK_LIBRARIES})
 
 add_executable(test test.cpp ${HEADERS})
 target_link_libraries(test ${LIBRARIES})
 
-add_executable(msrc msrc.cpp ${HEADERS})
+add_executable(msrc msrc.cpp ${HEADERS} )
 target_link_libraries(msrc ${LIBRARIES})
 
-add_executable(tumor tumor.cpp ${HEADERS})
+add_executable(tumor tumor.cpp ${HEADERS} )
 target_link_libraries(tumor ${LIBRARIES})
