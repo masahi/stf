@@ -8,15 +8,16 @@ class Histogram
 {
 public:
 
-    Histogram(int n_classes)
+    Histogram(int n_classes, const std::vector<double>& weights_)
         : n_bins(n_classes),
           n_samples(0),
-          bins(n_classes,0)
+          bins(n_classes,0),
+          weights(weights_)
     {
 
     }
 
-    int getNumberOfSamples() const
+    double getNumberOfSamples() const
     {
         return n_samples;
     }
@@ -26,12 +27,12 @@ public:
         return n_bins;
     }
 
-    std::vector<int> getBins() const
+    std::vector<double> getBins() const
     {
         return bins;
     }
 
-    int getCounts(int i) const
+    double getCounts(int i) const
     {
         assert(i < n_bins);
         return bins[i];
@@ -51,8 +52,8 @@ public:
     {
         assert(label < n_bins);
         assert(label >= 0);
-        ++bins[label];
-        ++n_samples;
+        bins[label] += weights[label];
+        n_samples += weights[label];
     }
 
 
@@ -69,8 +70,8 @@ public:
     void decrease(int label)
     {
         assert(label < n_bins);
-        --bins[label];
-        --n_samples;
+        bins[label] -= weights[label];
+        n_samples -= weights[label];
     }
 
     void clear()
@@ -81,8 +82,9 @@ public:
 
 private:
     const int n_bins;
-    int n_samples;
-    std::vector<int> bins;
+    double n_samples;
+    std::vector<double> bins;
+    std::vector<double> weights;
 };
 
 #endif // HISTOGRAM_H

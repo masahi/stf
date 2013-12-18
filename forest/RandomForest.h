@@ -38,16 +38,17 @@ public:
     template <typename FeatureContainer, typename LabelContainer>
     void train(const FeatureContainer& X,
         const LabelContainer& y,
-        const std::function<FeatureType* ()>& factory)
+        const std::function<FeatureType* ()>& factory,
+        const std::vector<double>& class_weights)
     {
-        const int data_per_tree = X.size();
+        const int data_per_tree = X.size() * 0.25;
 
         tbb::parallel_for(0,
             n_trees,
             [&](int i)
         {
             std::vector<int> indices = randomSamples(X.size(), data_per_tree);
-            trees[i].train(X, y, indices, factory);
+            trees[i].train(X, y, indices, factory,class_weights);
         }
         );
     }

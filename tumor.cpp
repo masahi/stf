@@ -121,9 +121,10 @@ int main(int argc, char *argv[])
     const int n_features = 400;//static_cast<int>(std::sqrt(feature_dim));
     const int n_thres = 5;
     const int max_depth = 10;
-    RandomForest<PatchFeature> forest(n_classes, n_trees, n_features, n_thres, max_depth);
+    const std::vector<double> weights(n_classes, 1.0/n_classes);
 
-    forest.train(all_patches, all_labels, factory);
+    RandomForest<PatchFeature> forest(n_classes, n_trees, n_features, n_thres, max_depth);
+    forest.train(all_patches, all_labels, factory,weights);
 
     std::cout << "Done trainging\n";
 

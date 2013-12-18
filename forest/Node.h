@@ -1,4 +1,5 @@
 #include <memory>
+#include <algorithm>
 #include <Histogram.h>
 #include <vector>
 
@@ -53,8 +54,9 @@ public:
        hist(h),
 	   dist(h.getNumberOfBins(),0)
    {
-      const int n_samples = hist.getNumberOfSamples();
+      const double n_samples = hist.getNumberOfSamples();
       const int n_bins = hist.getNumberOfBins();
+      const std::vector<double> bikns = hist.getBins();
       for (int i = 0; i < n_bins; ++i) {
          dist[i] = static_cast<double>(hist.getCounts(i)) / n_samples;
       }

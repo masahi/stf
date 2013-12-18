@@ -27,8 +27,11 @@ int main(int argc, char *argv[])
     const int n_features = static_cast<int>(std::sqrt(feature_dim));
     //const int n_thres = -1;
 
+    const std::vector<double> weights(n_classes, 1.0/n_classes);
+
     RandomForest<IdentityFeature> forest(n_classes, n_trees, n_features);//, n_thres);
-    forest.train(X, y, featureFactory);
+    forest.train(X, y, featureFactory, weights);
+
     const string test_file(argv[3]);
 
     vector<vector<double>> X_test;
@@ -38,12 +41,15 @@ int main(int argc, char *argv[])
 
     int n_correct = 0;
 	const int n_test = y_test.size();
+    std::vector<int> pred_count(n_classes, 0);
     for (int i = 0; i < n_test; ++i)
     {
 		const int prediction = forest.predict(X_test[i]);
 		n_correct += (prediction == y_test[i] ? 1 : 0);
+        pred_count[prediction] += 1;
     }
 
+    for(int i = 0; i < n_classes; ++i) std::cout << pred_count[i] << std::endl;
     std::cout << "Accuracy: " << static_cast<double>(n_correct) / n_test * 100 << std::endl;
     std::cout << "Elapsed time: " << t.elapsed() << std::endl;
 

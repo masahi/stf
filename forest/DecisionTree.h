@@ -31,9 +31,10 @@ public:
     void train(const FeatureContainer& X,
         const LabelContainer& y,
         std::vector<int>& indices,
-        const std::function<FeatureType* ()>& factory)
+        const std::function<FeatureType* ()>& factory,
+        const std::vector<double>& class_weights)
     {
-        buildTree(X, y, indices, factory);
+        buildTree(X, y, indices, factory, class_weights);
     }
 
     template <typename D>
@@ -74,7 +75,8 @@ private:
     void buildTree(const FeatureContainer& X,
         const LabelContainer& y,
         std::vector<int>& indices,
-        const std::function<FeatureType* ()>& factory)
+        const std::function<FeatureType* ()>& factory,
+        const std::vector<double>& class_weights)
     {
         std::queue<NodeBuildInfo> que;
         que.push(NodeBuildInfo(0, indices.size(), 0, false, 0));
@@ -93,6 +95,8 @@ private:
             const int n_data = to - from;
             const int depth = info.depth + 1;
 
+            std::cout << depth << std::endl;
+
             std::vector<double> response(n_data);
             double best_gain = -1;
             std::shared_ptr<FeatureType> best_feature(factory());
@@ -109,7 +113,7 @@ private:
             }
             std::vector<double> threshold(n_threshold + 1);//,std::numeric_limits<double>::max());
 
-            Histogram parent_hist(n_classes);
+            Histogram parent_hist(n_classes, class_weights);
             int prev_label = y[indices[from]];
             bool same_label = true;
 
@@ -171,14 +175,14 @@ private:
                     threshold[j] = threshold[j] + (double)rand() / RAND_MAX * (threshold[j + 1] - threshold[j]);
                 }
 
-                std::vector<Histogram> partition_statistics(threshold.size(), Histogram(n_classes));
+                std::vector<Histogram> partition_statistics(threshold.size(), Histogram(n_classes,class_weights));
                 for (int j = from; j < to; ++j)
                 {
                     int t = std::upper_bound(threshold.begin(), threshold.begin() + n_threshold, response[j - from]) - threshold.begin();
                     partition_statistics[t].accumulate(y[indices[j]]);
                 }
 
-                Histogram left_statistics(n_classes), right_statistics(n_classes);
+                Histogram left_statistics(n_classes,class_weights), right_statistics(n_classes,class_weights);
                 left_statistics.accumulate(partition_statistics[0]);
 
                 for (int t = 1; t < threshold.size(); ++t)

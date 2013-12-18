@@ -102,34 +102,37 @@ int main(int argc, char *argv[])
         append(all_labels, labels);
     }
 
-    std::vector<int> counts(24, 0);
+    std::vector<double> counts(24, 0);
     for (size_t i = 0; i < all_labels.size(); i++)
     {
-        counts[all_labels[i] + 1] += 1;
+        counts[all_labels[i]] += 1;
     }
     std::cout << all_patches.size() << std::endl;
     std::cout << bgr_map.size() << std::endl;
 
+    for(int i = 0; i < 24; ++i) std::cout << counts[i] << std::endl;
 
     const std::function<PatchFeature* ()> factory = std::bind(createPatchFeature, patch_size);
 
     const int n_classes = msrc_config.size();
-    const int n_trees = 1;
-    const int n_features = 100;//static_cast<int>(std::sqrt(feature_dim));
+    const int n_trees = 8;
+    const int n_features = 400;//static_cast<int>(std::sqrt(feature_dim));
     const int n_thres = 5;
     const int max_depth = 10;
     RandomForest<PatchFeature> forest(n_classes, n_trees, n_features, n_thres, max_depth);
 
-    forest.train(all_patches, all_labels, factory);
+    std::vector<double> class_weight(24,0);
+    for(int i = 0; i < 24; ++i) class_weight[i] = 1.0 / counts[i];
+    forest.train(all_patches, all_labels, factory, class_weight);
 
     std::cout << "Done training\n";
 
     int n_tests = 0;
-    std::vector<int> n_tests_per_class(n_classes - 1, 0);
+    std::vector<int> n_tests_per_class(n_classes, 0);
     int n_corrects = 0;
-    std::vector<int> n_corrects_per_class(n_classes - 1, 0);
+    std::vector<int> n_corrects_per_class(n_classes, 0);
     int n_corrects_gco = 0;
-    std::vector<int> n_corrects_per_class_gco(n_classes - 1, 0);
+    std::vector<int> n_corrects_per_class_gco(n_classes, 0);
 
     std::vector<double> smooth_cost(n_classes * n_classes, 0);
     const double w = 64;
@@ -143,6 +146,7 @@ int main(int argc, char *argv[])
 
     for (size_t i = 1; i < img_paths.size(); i += 2)
     {
+        std::cout << i << std::endl;
         const Mat img = imread(img_paths[i]);
         const Mat gt = imread(gt_paths[i]);
 
@@ -171,51 +175,53 @@ int main(int argc, char *argv[])
             n_corrects += (prediction == label ? 1 : 0);
             n_tests_per_class[label] += 1;
             n_corrects_per_class[label] += (prediction == label ? 1 : 0);
-            label_image.at<Vec3b>(p / cols, p % cols) = label_map.find(prediction)->bgr;
+            label_image.at<Vec3b>(p / cols, p % cols) = label_map.find(prediction-1)->bgr;
         }
 
-        const boost::scoped_ptr<GCoptimization> gco(new GCoptimizationGridGraph(cols, rows, n_classes));
-        gco->setDataCost(&unary_cost[0]);
-        gco->setSmoothCost(&smooth_cost[0]);
-        gco->expansion();
+//        const boost::scoped_ptr<GCoptimization> gco(new GCoptimizationGridGraph(cols, rows, n_classes));
+//        gco->setDataCost(&unary_cost[0]);
+//        gco->setSmoothCost(&smooth_cost[0]);
+//        gco->expansion();
 
-        for (size_t r = 0; r < rows; ++r)
-        {
-            for (size_t c = 0; c < cols; ++c)
-            {
-                const int prediction = gco->whatLabel(c + r * n_classes);
-                const int label = labels[c + r * n_classes];
-                n_corrects_gco += (prediction == label ? 1 : 0);
-                n_corrects_per_class_gco[label] += (prediction == label ? 1 : 0);
+//        for (size_t r = 0; r < rows; ++r)
+//        {
+//            for (size_t c = 0; c < cols; ++c)
+//            {
+//                const int prediction = gco->whatLabel(c + r * n_classes);
+//                const int label = labels[c + r * n_classes];
+//                n_corrects_gco += (prediction == label ? 1 : 0);
+//                n_corrects_per_class_gco[label] += (prediction == label ? 1 : 0);
 
-                label_image_gco.at<Vec3b>(r, c) = label_map.find(prediction)->bgr;
-            }
-        }
+//                label_image_gco.at<Vec3b>(r, c) = label_map.find(prediction-1)->bgr;
+//            }
+//        }
 
         const fs::path save_path = fs::current_path() / output_dir / fs::path(img_paths[i]);
         const fs::path save_path_gco = fs::current_path() / output_dir_gco / fs::path(img_paths[i]);
 
+        std::cout << save_path.string() << std::endl;
         imwrite(save_path.string(), label_image);
-        imwrite(save_path_gco.string(), label_image_gco);
+       // imwrite(save_path_gco.string(), label_image_gco);
+
     }
 
     std::cout << "******************* Unary Only ***********************\n";
     std::cout << "Overall accuracy: " << static_cast<double>(n_corrects) / n_tests << std::endl;
     std::cout << "Individual accuracy:" << std::endl;
 
-    for (size_t i = 0; i < n_classes - 1; i++)
+    for (size_t i = 0; i < n_classes; i++)
     {
-        std::cout << label_map.find(i)->name << ": " << static_cast<double>(n_corrects_per_class[i]) / n_tests_per_class[i] << std::endl;
+        std::cout << label_map.find(i-1)->name << ": " << static_cast<double>(n_corrects_per_class[i]) / n_tests_per_class[i] << std::endl;
     }
 
-    std::cout << "******************* GCO ***********************\n";
-    std::cout << "Overall accuracy: " << static_cast<double>(n_corrects_gco) / n_tests << std::endl;
-    std::cout << "Individual accuracy:" << std::endl;
+//    std::cout << "******************* GCO ***********************\n";
+//    std::cout << "Overall accuracy: " << static_cast<double>(n_corrects_gco) / n_tests << std::endl;
+//    std::cout << "Individual accuracy:" << std::endl;
 
-    for (size_t i = 0; i < n_classes - 1; i++)
-    {
-        std::cout << label_map.find(i)->name << ": " << static_cast<double>(n_corrects_per_class_gco[i]) / n_tests_per_class[i] << std::endl;
-    }
+//    for (size_t i = 0; i < n_classes; i++)
+//    {
+//        std::cout << label_map.find(i-1)->name << ": " << static_cast<double>(n_corrects_per_class_gco[i]) / n_tests_per_class[i] << std::endl;
+//    }
     return 0;
 }
 
