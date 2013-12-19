@@ -78,7 +78,7 @@ public:
     typedef Node::NodePtr NodePtr;
     typedef Node::NodeRawPtr NodeRawPtr;
 
-    SplitNode(int node_index, int depth, std::shared_ptr<FeatureType> f, double t)
+    SplitNode(int node_index, int depth, const FeatureType& f, double t)
         : Node(node_index, false, depth),
           feature(f),
           threshold(t)
@@ -88,13 +88,13 @@ public:
     template <typename Data>
     double getFeatureResponse(const Data& v) const
     {
-        return (*feature)(v);
+        return feature(v);
     }
 
     double getThreshold() const { return threshold;}
 
 private:
 
-    std::shared_ptr<FeatureType> feature;
-    double threshold;
+    FeatureType feature;
+    const double threshold;
 };

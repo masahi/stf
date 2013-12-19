@@ -18,7 +18,6 @@ class RandomForest
 public:
 
     typedef DecisionTree<FeatureType> Tree;
-    typedef std::unique_ptr<Tree> TreePtr;
 
     RandomForest(int n_classes_, int n_trees_ = 1, int n_features = 400, int n_thresholds = -1, int max_depth = std::numeric_limits<int>::max())
         :n_classes(n_classes_),
@@ -30,7 +29,7 @@ public:
     template <typename T>
     void train(const Matrix<T>& X,
         const Vector<int>& y,
-        const std::function<FeatureType* ()>& factory)
+        const std::function<FeatureType ()>& factory)
     {
         train(EigenMatrixAdapter<T>(X), EigenVectorAdapter<int>(y), factory);
     }
@@ -38,7 +37,7 @@ public:
     template <typename FeatureContainer, typename LabelContainer>
     void train(const FeatureContainer& X,
         const LabelContainer& y,
-        const std::function<FeatureType* ()>& factory,
+        const std::function<FeatureType ()>& factory,
         const std::vector<double>& class_weights)
     {
         const int data_per_tree = X.size() * 0.25;

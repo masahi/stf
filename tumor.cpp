@@ -114,7 +114,7 @@ int main(int argc, char *argv[])
     std::cout << bgr_map.size() << std::endl;
 
 
-    const std::function<PatchFeature* ()> factory = std::bind(createPatchFeature, patch_size);
+    const std::function<PatchFeature ()> factory = std::bind(createPatchFeature, patch_size);
 
     const int n_classes = msrc_config.size();
     const int n_trees = 5;

@@ -22,8 +22,8 @@ int main(int argc, char *argv[])
     const int n_classes = countUnique(y);
 
     boost::timer t;
-    const std::function<IdentityFeature* ()> featureFactory = std::bind(createFeature, feature_dim);
-    const int n_trees = 10;
+    const std::function<IdentityFeature ()> featureFactory = std::bind(createFeature, feature_dim);
+    const int n_trees = 1;
     const int n_features = static_cast<int>(std::sqrt(feature_dim));
     //const int n_thres = -1;
 

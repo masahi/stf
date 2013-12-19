@@ -112,7 +112,7 @@ int main(int argc, char *argv[])
 
     for(int i = 0; i < 24; ++i) std::cout << counts[i] << std::endl;
 
-    const std::function<PatchFeature* ()> factory = std::bind(createPatchFeature, patch_size);
+    const std::function<PatchFeature ()> factory = std::bind(createPatchFeature, patch_size);
 
     const int n_classes = msrc_config.size();
     const int n_trees = 8;

@@ -41,7 +41,7 @@ public:
     {
     }
 
-    double operator()(const cv::Mat& patch)
+    double operator()(const cv::Mat& patch) const
     {
         const uchar v1 = patch.at<cv::Vec3b>(pos1)[channel];
         const uchar v2 = patch.at<cv::Vec3b>(pos2)[channel];
@@ -55,18 +55,18 @@ public:
 
 private:
 
-    const int patch_size;
-    const ResponseType type;
-    const cv::Point2d pos1,pos2;
-    const int channel;
+    int patch_size;
+    ResponseType type;
+    cv::Point2d pos1,pos2;
+    int channel;
 };
 
-IdentityFeature* createFeature(int dim)
+IdentityFeature createFeature(int dim)
 {
-    return new IdentityFeature(randInt(0, dim));
+    return  IdentityFeature(randInt(0, dim));
 }
 
-PatchFeature* createPatchFeature(int patch_size)
+PatchFeature createPatchFeature(int patch_size)
 {
     const int r = randInt(0,4);
     PatchFeature::ResponseType type;
@@ -81,7 +81,7 @@ PatchFeature* createPatchFeature(int patch_size)
 
     const int channel = randInt(0, 3);
 
-    return new PatchFeature(patch_size,type, pos1, pos2, channel);
+    return PatchFeature(patch_size,type, pos1, pos2, channel);
 }
 
 

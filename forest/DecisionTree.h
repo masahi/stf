@@ -8,6 +8,13 @@
 #include <queue>
 #include <Node.h>
 
+template <typename FeatureType>
+std::vector<FeatureType> generateRandomFeatures(const std::function<FeatureType ()>& factory, int n)
+{
+    std::vector<FeatureType> features(n,factory());
+    std::generate(features.begin(), features.end(), factory);
+    return features;
+}
 
 template <typename FeatureType>
 class DecisionTree
@@ -31,7 +38,7 @@ public:
     void train(const FeatureContainer& X,
         const LabelContainer& y,
         std::vector<int>& indices,
-        const std::function<FeatureType* ()>& factory,
+        const std::function<FeatureType ()>& factory,
         const std::vector<double>& class_weights)
     {
         buildTree(X, y, indices, factory, class_weights);
@@ -75,7 +82,7 @@ private:
     void buildTree(const FeatureContainer& X,
         const LabelContainer& y,
         std::vector<int>& indices,
-        const std::function<FeatureType* ()>& factory,
+        const std::function<FeatureType ()>& factory,
         const std::vector<double>& class_weights)
     {
         std::queue<NodeBuildInfo> que;
@@ -99,7 +106,7 @@ private:
 
             std::vector<double> response(n_data);
             double best_gain = -1;
-            std::shared_ptr<FeatureType> best_feature(factory());
+            FeatureType best_feature(factory());
             double best_thres;
 
             int n_threshold;
@@ -143,13 +150,14 @@ private:
                 continue;
             }
 
+            std::vector<FeatureType> candidate_features = generateRandomFeatures(factory, n_candidate_feat);
 
             for (int i = 0; i < n_candidate_feat; ++i)
             {
-                std::shared_ptr<FeatureType> f(factory());
+                FeatureType f(candidate_features[i]);
                 for (int j = from; j < to; ++j)
                 {
-                    response[j - from] = (*f)(X[indices[j]]);
+                    response[j - from] = f(X[indices[j]]);
                 }
                 if (n_data != n_threshold)
                 {
@@ -236,7 +244,7 @@ private:
 
             for (int i = from; i < to; ++i)
             {
-                response[i - from] = (*best_feature)(X[indices[i]]);
+                response[i - from] = best_feature(X[indices[i]]);
             }
 
             SplitNode<FeatureType>* split(new SplitNode<FeatureType>(node_index, depth, best_feature, best_thres));
