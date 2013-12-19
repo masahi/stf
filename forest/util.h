@@ -28,30 +28,51 @@ std::vector<FeatureType> generateRandomFeatures(const std::function<FeatureType(
     return features;
 }
 
-std::vector<double> generateCandidateThreshold(const std::vector<double>& response, int n_threshold, int n_data)
+void generateCandidateThreshold(std::vector<double>& threshold, const std::vector<double>& response, int n_threshold, int n_data)
 {
-    std::vector<double> threshold(n_threshold + 1);
-    if (n_data == n_threshold + 1)
-    {
-        std::copy(response.begin(), response.end(), threshold.begin());
-    }
-    else
+    if (n_data != n_threshold)
     {
         for (int j = 0; j < threshold.size(); ++j)
         {
             threshold[j] = response[randInt(0, n_data)];
         }
     }
+    else
+    {
+        std::copy(response.begin(), response.end(), threshold.begin());
+    }
 
     std::sort(threshold.begin(), threshold.end());
 
+//    if (threshold[0] == threshold[n_threshold])
+//    {
+//        continue;
+//    }
+
     for (int j = 0; j < n_threshold; ++j)
     {
-        threshold[j] = threshold[j] + static_cast<double>(rand()) / RAND_MAX * (threshold[j + 1] - threshold[j]);
+        threshold[j] = threshold[j] + (double)rand() / RAND_MAX * (threshold[j + 1] - threshold[j]);
     }
+    //    if (n_data == n_threshold + 1)
+    //    {
+    //        std::copy(response.begin(), response.end(), threshold.begin());
+    //    }
+    //    else
+    //    {
+    //        for (int j = 0; j < threshold.size(); ++j)
+    //        {
+    //            threshold[j] = response[randInt(0, n_data)];
+    //        }
+    //    }
 
-    return threshold;
+    //    std::sort(threshold.begin(), threshold.end());
+
+    //    for (int j = 0; j < n_threshold; ++j)
+    //    {
+    //        threshold[j] = threshold[j] + static_cast<double>(rand()) / RAND_MAX * (threshold[j + 1] - threshold[j]);
+    //    }
 }
+
 double computeInfomationGain(const Histogram& parent, const Histogram& left, const Histogram& right)
 {
 	const int n_classes = parent.getNumberOfBins();

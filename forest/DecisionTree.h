@@ -110,6 +110,7 @@ private:
                 n_threshold = n_thres_per_feat - 1;
             }
 
+            std::vector<double> threshold(n_threshold + 1);
             Histogram parent_hist(n_classes, class_weights);
             int prev_label = y[indices[from]];
             bool same_label = true;
@@ -150,7 +151,7 @@ private:
                     response[j - from] = f(X[indices[j]]);
                 }
 
-                std::vector<double> threshold = generateCandidateThreshold(response, n_threshold, n_data);
+                generateCandidateThreshold(threshold, response, n_threshold, n_data);
                 std::vector<Histogram> partition_statistics(threshold.size(), Histogram(n_classes, class_weights));
 
                 for (int j = from; j < to; ++j)

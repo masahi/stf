@@ -42,7 +42,7 @@ int main(int argc, char *argv[])
 
     boost::timer t;
     const FeatureFactory factory = std::bind(createFeature, feature_dim);
-    const int n_trees = 1;
+    const int n_trees = 10;
     const int n_features = static_cast<int>(std::sqrt(feature_dim));
     //const int n_thres = -1;
 

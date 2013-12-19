@@ -178,30 +178,30 @@ int main(int argc, char *argv[])
             label_image.at<Vec3b>(p / cols, p % cols) = label_map.find(prediction-1)->bgr;
         }
 
-        const boost::scoped_ptr<GCoptimization> gco(new GCoptimizationGridGraph(cols, rows, n_classes));
-        gco->setDataCost(&unary_cost[0]);
-        gco->setSmoothCost(&smooth_cost[0]);
-        gco->expansion();
+//        const boost::scoped_ptr<GCoptimization> gco(new GCoptimizationGridGraph(cols, rows, n_classes));
+//        gco->setDataCost(&unary_cost[0]);
+//        gco->setSmoothCost(&smooth_cost[0]);
+//        gco->expansion();
 
-        for (size_t r = 0; r < rows; ++r)
-        {
-            for (size_t c = 0; c < cols; ++c)
-            {
-                const int prediction = gco->whatLabel(c + r * cols);
-                const int label = labels[c + r * n_classes];
-                n_corrects_gco += (prediction == label ? 1 : 0);
-                n_corrects_per_class_gco[label] += (prediction == label ? 1 : 0);
+//        for (size_t r = 0; r < rows; ++r)
+//        {
+//            for (size_t c = 0; c < cols; ++c)
+//            {
+//                const int prediction = gco->whatLabel(c + r * cols);
+//                const int label = labels[c + r * n_classes];
+//                n_corrects_gco += (prediction == label ? 1 : 0);
+//                n_corrects_per_class_gco[label] += (prediction == label ? 1 : 0);
 
-                label_image_gco.at<Vec3b>(r, c) = label_map.find(prediction-1)->bgr;
-            }
-        }
+//                label_image_gco.at<Vec3b>(r, c) = label_map.find(prediction-1)->bgr;
+//            }
+//        }
 
         const fs::path save_path = fs::current_path() / output_dir / fs::path(img_paths[i]);
-        const fs::path save_path_gco = fs::current_path() / output_dir_gco / fs::path(img_paths[i]);
+//        const fs::path save_path_gco = fs::current_path() / output_dir_gco / fs::path(img_paths[i]);
 
         std::cout << save_path.string() << std::endl;
         imwrite(save_path.string(), label_image);
-        imwrite(save_path_gco.string(), label_image_gco);
+ //       imwrite(save_path_gco.string(), label_image_gco);
 
     }
 
@@ -214,14 +214,14 @@ int main(int argc, char *argv[])
         std::cout << label_map.find(i-1)->name << ": " << static_cast<double>(n_corrects_per_class[i]) / n_tests_per_class[i] << std::endl;
     }
 
-    std::cout << "******************* GCO ***********************\n";
-    std::cout << "Overall accuracy: " << static_cast<double>(n_corrects_gco) / n_tests << std::endl;
-    std::cout << "Individual accuracy:" << std::endl;
+//    std::cout << "******************* GCO ***********************\n";
+//    std::cout << "Overall accuracy: " << static_cast<double>(n_corrects_gco) / n_tests << std::endl;
+//    std::cout << "Individual accuracy:" << std::endl;
 
-    for (size_t i = 0; i < n_classes; i++)
-    {
-        std::cout << label_map.find(i-1)->name << ": " << static_cast<double>(n_corrects_per_class_gco[i]) / n_tests_per_class[i] << std::endl;
-    }
+//    for (size_t i = 0; i < n_classes; i++)
+//    {
+//        std::cout << label_map.find(i-1)->name << ": " << static_cast<double>(n_corrects_per_class_gco[i]) / n_tests_per_class[i] << std::endl;
+//    }
     return 0;
 }
 
