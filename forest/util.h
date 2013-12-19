@@ -20,6 +20,38 @@
 #include <eigen_util.h>
 #include <Histogram.h>
 
+template <typename FeatureType>
+std::vector<FeatureType> generateRandomFeatures(const std::function<FeatureType()>& factory, int n)
+{
+    std::vector<FeatureType> features(n, factory());
+    std::generate(features.begin(), features.end(), factory);
+    return features;
+}
+
+std::vector<double> generateCandidateThreshold(const std::vector<double>& response, int n_threshold, int n_data)
+{
+    std::vector<double> threshold(n_threshold + 1);
+    if (n_data == n_threshold + 1)
+    {
+        std::copy(response.begin(), response.end(), threshold.begin());
+    }
+    else
+    {
+        for (int j = 0; j < threshold.size(); ++j)
+        {
+            threshold[j] = response[randInt(0, n_data)];
+        }
+    }
+
+    std::sort(threshold.begin(), threshold.end());
+
+    for (int j = 0; j < n_threshold; ++j)
+    {
+        threshold[j] = threshold[j] + static_cast<double>(rand()) / RAND_MAX * (threshold[j + 1] - threshold[j]);
+    }
+
+    return threshold;
+}
 double computeInfomationGain(const Histogram& parent, const Histogram& left, const Histogram& right)
 {
 	const int n_classes = parent.getNumberOfBins();

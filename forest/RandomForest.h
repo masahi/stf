@@ -40,7 +40,7 @@ public:
         const std::function<FeatureType ()>& factory,
         const std::vector<double>& class_weights)
     {
-        const int data_per_tree = X.size() * 0.25;
+        const int data_per_tree = X.size();
 
         tbb::parallel_for(0,
             n_trees,

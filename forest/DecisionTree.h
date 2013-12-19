@@ -8,13 +8,6 @@
 #include <queue>
 #include <Node.h>
 
-template <typename FeatureType>
-std::vector<FeatureType> generateRandomFeatures(const std::function<FeatureType ()>& factory, int n)
-{
-    std::vector<FeatureType> features(n,factory());
-    std::generate(features.begin(), features.end(), factory);
-    return features;
-}
 
 template <typename FeatureType>
 class DecisionTree
@@ -38,7 +31,7 @@ public:
     void train(const FeatureContainer& X,
         const LabelContainer& y,
         std::vector<int>& indices,
-        const std::function<FeatureType ()>& factory,
+        const std::function<FeatureType()>& factory,
         const std::vector<double>& class_weights)
     {
         buildTree(X, y, indices, factory, class_weights);
@@ -82,7 +75,7 @@ private:
     void buildTree(const FeatureContainer& X,
         const LabelContainer& y,
         std::vector<int>& indices,
-        const std::function<FeatureType ()>& factory,
+        const std::function<FeatureType()>& factory,
         const std::vector<double>& class_weights)
     {
         std::queue<NodeBuildInfo> que;
@@ -102,15 +95,13 @@ private:
             const int n_data = to - from;
             const int depth = info.depth + 1;
 
-            std::cout << depth << std::endl;
-
             std::vector<double> response(n_data);
             double best_gain = -1;
             FeatureType best_feature(factory());
             double best_thres;
 
             int n_threshold;
-            if (n_thres_per_feat == -1)
+            if (n_thres_per_feat == -1 || n_data < n_thres_per_feat)
             {
                 n_threshold = n_data - 1;
             }
@@ -118,7 +109,6 @@ private:
             {
                 n_threshold = n_thres_per_feat - 1;
             }
-            std::vector<double> threshold(n_threshold + 1);//,std::numeric_limits<double>::max());
 
             Histogram parent_hist(n_classes, class_weights);
             int prev_label = y[indices[from]];
@@ -150,7 +140,7 @@ private:
                 continue;
             }
 
-            std::vector<FeatureType> candidate_features = generateRandomFeatures(factory, n_candidate_feat);
+            const std::vector<FeatureType> candidate_features = generateRandomFeatures(factory, n_candidate_feat);
 
             for (int i = 0; i < n_candidate_feat; ++i)
             {
@@ -159,38 +149,17 @@ private:
                 {
                     response[j - from] = f(X[indices[j]]);
                 }
-                if (n_data != n_threshold)
-                {
-                    for (int j = 0; j < threshold.size(); ++j)
-                    {
-                        threshold[j] = response[randInt(0, n_data)];
-                    }
-                }
-                else
-                {
-                    std::copy(response.begin(), response.end(), threshold.begin());
-                }
 
-                std::sort(threshold.begin(), threshold.end());
+                std::vector<double> threshold = generateCandidateThreshold(response, n_threshold, n_data);
+                std::vector<Histogram> partition_statistics(threshold.size(), Histogram(n_classes, class_weights));
 
-                if (threshold[0] == threshold[n_threshold])
-                {
-                    continue;
-                }
-
-                for (int j = 0; j < n_threshold; ++j)
-                {
-                    threshold[j] = threshold[j] + (double)rand() / RAND_MAX * (threshold[j + 1] - threshold[j]);
-                }
-
-                std::vector<Histogram> partition_statistics(threshold.size(), Histogram(n_classes,class_weights));
                 for (int j = from; j < to; ++j)
                 {
                     int t = std::upper_bound(threshold.begin(), threshold.begin() + n_threshold, response[j - from]) - threshold.begin();
                     partition_statistics[t].accumulate(y[indices[j]]);
                 }
 
-                Histogram left_statistics(n_classes,class_weights), right_statistics(n_classes,class_weights);
+                Histogram left_statistics(n_classes, class_weights), right_statistics(n_classes, class_weights);
                 left_statistics.accumulate(partition_statistics[0]);
 
                 for (int t = 1; t < threshold.size(); ++t)

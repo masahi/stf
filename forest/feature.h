@@ -8,7 +8,11 @@
 class IdentityFeature
 {
 public:
-   IdentityFeature(int i) : index(i){}
+    IdentityFeature(int i,int dim) : 
+       index(i),
+       feature_dim(dim)
+   {
+   }
 
    template <typename T>
    double operator()(const std::vector<T>& v) const { return v[index];}
@@ -16,8 +20,11 @@ public:
    template <typename T>
    double operator()(const Vector<T>& v) const { return v(index);}
 
+   const int getFeatureDim() const { return feature_dim; }
+
 private:
    int index;
+   int feature_dim;
 };
 
 class PatchFeature
@@ -63,7 +70,7 @@ private:
 
 IdentityFeature createFeature(int dim)
 {
-    return  IdentityFeature(randInt(0, dim));
+    return  IdentityFeature(randInt(0,dim), dim);
 }
 
 PatchFeature createPatchFeature(int patch_size)

@@ -8,7 +8,7 @@
 #include <boost/scoped_ptr.hpp>
 #include <boost/timer.hpp>
 #include <opencv2/highgui/highgui.hpp>
-#include <itkImageFileReader.h>
+//#include <itkImageFileReader.h>
 #include <GCoptimization.h>
 #include <RandomForest.h>
 #include <feature.h>
