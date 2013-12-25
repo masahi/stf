@@ -8,7 +8,7 @@ set(GCO_LIB gco)
 
 include_directories(../)
 
-add_executable(msrc msrc.cpp ${FOREST_HEADERS} )
+add_executable(msrc msrc.cpp util.h ${FOREST_HEADERS} )
 target_link_libraries(msrc ${GENERAL_LIBRARIES} ${OpenCV_LIBS} ${GCO_LIB})
 
 

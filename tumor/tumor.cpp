@@ -4,36 +4,124 @@
 #include <functional>
 #include <map>
 #include <boost/filesystem.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 #include <boost/program_options.hpp>
 #include <boost/timer.hpp>
 #include <itkImage.h>
 #include <itkImageFileReader.h>
 #include <forest/RandomForest.h>
 
-class DataInstance
-{
+typedef itk::Image<short, 3> Volume;
+typedef Volume::Pointer VolumePtr;
+typedef itk::ImageFileReader<Volume> ImageReader;
 
+struct DataInstance
+{
+    DataInstance(const std::vector<VolumePtr>& vols, const VolumePtr& g, int x_, int y_, int z_) :
+        volumes(vols),
+        gt(g),
+        x(x_),
+        y(y_),
+        z(z_)
+    {
+    }
+
+    const std::vector<VolumePtr>& volumes;
+    const VolumePtr& gt;
+    const int x, y, z;
 };
 
 using namespace std;
 namespace fs = boost::filesystem;
 namespace po = boost::program_options;
 
+fs::path find_mha(const fs::path& dir_path) {
+    const fs::directory_iterator end;
+    const auto it = find_if(fs::directory_iterator(dir_path), end,
+        [](const fs::directory_entry& e)
+    {
+        return boost::algorithm::ends_with(e.path().string(), "mha");
+    }
+    );
+    return it->path();
+}
+
+void addInstance(vector<DataInstance>& data, const fs::path& instance_path)
+{
+    const fs::path flair_path(instance_path / fs::path("VSD.Brain.XX.O.MR_Flair"));
+    const fs::path t1_path(instance_path / fs::path("VSD.Brain.XX.O.MR_T1"));
+    const fs::path t1c_path(instance_path / fs::path("VSD.Brain.XX.O.MR_T1c"));
+    const fs::path t2_path(instance_path / fs::path("VSD.Brain.XX.O.MR_T2"));
+    const fs::path gt_path(instance_path / fs::path("VSD.Brain_3more.XX.XX.OT"));
+
+    vector<const fs::path> volume_paths
+    {
+        flair_path,
+        t1_path,
+        t1c_path,
+        t2_path
+    };
+
+
+    ImageReader::Pointer reader = ImageReader::New();
+    reader->SetFileName(find_mha(gt_path).string());
+    reader->Update();
+    VolumePtr gt = reader->GetOutput();
+    vector<VolumePtr> volumes;
+
+    for (const fs::path& p : volume_paths)
+    {
+        const fs::path mha_path = find_mha(p);
+        reader->SetFileName(mha_path.string());
+        reader->Update();
+        volumes.push_back(reader->GetOutput());
+    }
+
+    const auto size = volumes[0]->GetLargestPossibleRegion().GetSize();
+    const int width = size[0];
+    const int height = size[1];
+    const int depth = size[2];
+
+    for (int z = 0; z < depth; ++z)
+    {
+        for (int y = 0; y < height; ++y)
+        {
+            for (int x = 0; x < width; ++x)
+            {
+                data.push_back(DataInstance(volumes, gt, x, y, z));
+            }
+        }
+    }
+
+
+}
 
 int main(int argc, char *argv[])
 {
-    // po::options_description opt("option");
-    // opt.add_options()
-    //     ("img_dir", po::value<string>())
-    //     ("gt_dir", po::value<string>())
-    //     ("patch_size", po::value<int>()->default_value(5))
-    //     ("subsample", po::value<int>()->default_value(3))
-    //     ;
+    po::options_description opt("option");
+    opt.add_options()
+        ("data_dir", po::value<string>())
+        ("patch_size", po::value<int>()->default_value(5))
+        ("subsample", po::value<int>()->default_value(3))
+        ;
 
-    // po::variables_map vm;
-    // po::store(po::parse_command_line(argc, argv, opt), vm);
-    // po::notify(vm);
+    po::variables_map vm;
+    po::store(po::parse_command_line(argc, argv, opt), vm);
+    po::notify(vm);
 
+    const fs::path data_dir(vm["data_dir"].as<string>());
+    fs::directory_iterator dir_iter(data_dir);
+    std::vector<DataInstance> data;
+
+    int c = 0;
+    for (; dir_iter != fs::directory_iterator(); ++dir_iter, ++c)
+    {
+        const fs::path instance(dir_iter->path());
+        addInstance(data, instance);
+        if (c > 2) break;
+    }
+
+    std::cout << data.size() << std::endl;
     // ConfigMap msrc_config
     // {
     //     { Vec3b(0, 0, 0), -1, "void" },
@@ -65,23 +153,6 @@ int main(int argc, char *argv[])
     // const BgrMap& bgr_map = msrc_config.get<bgr>();
     // const LabelMap& label_map = msrc_config.get<label>();
 
-    // const fs::path img_dir(vm["img_dir"].as<string>());
-    // const fs::path gt_dir(vm["gt_dir"].as<string>());
-    // fs::directory_iterator img_file(img_dir);
-    // fs::directory_iterator gt_file(gt_dir);
-    // const int patch_size = vm["patch_size"].as<int>();
-
-    // std::vector<string> img_paths;
-    // std::vector<string> gt_paths;
-
-    // for (; img_file != fs::directory_iterator(); ++img_file, ++gt_file)
-    // {
-    //     const string img_path = img_file->path().string();
-    //     const string gt_path = gt_file->path().string();
-
-    //     img_paths.push_back(img_path);
-    //     gt_paths.push_back(gt_path);
-    // }
 
     // std::sort(img_paths.begin(), img_paths.end());
     // std::sort(gt_paths.begin(), gt_paths.end());

@@ -103,16 +103,8 @@ std::tuple<std::vector<cv::Mat>, std::vector<int> > extractPatches(const cv::Mat
 				cv::Rect roi(c - rad, r - rad, patch_size, patch_size);
 				const cv::Vec3b bgr = gt.at<cv::Vec3b>(r - rad, c - rad);
 
-				if (bgr_map.find(bgr) == bgr_map.end())
-				{
-					std::cout << (int)bgr[0] << "," << (int)bgr[1] << "," << (int)bgr[2] << std::endl;
-					std::cout << r - rad << "," << c - rad << std::endl;
-				}
-				else
-				{
-                    labels.push_back(bgr_map.find(bgr)->label+1);
-					patches.push_back(padded(roi));
-				}
+                labels.push_back(bgr_map.find(bgr)->label+1);
+				patches.push_back(padded(roi));
 
 				if (TRANSFORM)
 				{
