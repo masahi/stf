@@ -19,7 +19,7 @@ std::vector<FeatureType> generateRandomFeatures(const std::function<FeatureType(
 
 void generateCandidateThreshold(std::vector<double>& threshold, const std::vector<double>& response, int n_threshold, int n_data)
 {
-    if (n_data != n_threshold)
+    if (n_data - 1 != n_threshold)
     {
         for (int j = 0; j < threshold.size(); ++j)
         {

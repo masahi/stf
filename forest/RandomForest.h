@@ -39,9 +39,10 @@ public:
     void train(const FeatureContainer& X,
         const LabelContainer& y,
         const std::function<FeatureType ()>& factory,
-        const std::vector<double>& class_weights)
+        const std::vector<double>& class_weights,
+        double sample_rate = 1)
     {
-        const int data_per_tree = X.size();
+        const int data_per_tree = X.size() * sample_rate;
 
         tbb::parallel_for(0,
             n_trees,

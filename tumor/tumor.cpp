@@ -35,7 +35,7 @@ using namespace std;
 namespace fs = boost::filesystem;
 namespace po = boost::program_options;
 
-fs::path find_mha(const fs::path& dir_path) {
+fs::path findMHA(const fs::path& dir_path) {
     const fs::directory_iterator end;
     const auto it = find_if(fs::directory_iterator(dir_path), end,
         [](const fs::directory_entry& e)
@@ -54,7 +54,7 @@ void addInstance(vector<DataInstance>& data, const fs::path& instance_path)
     const fs::path t2_path(instance_path / fs::path("VSD.Brain.XX.O.MR_T2"));
     const fs::path gt_path(instance_path / fs::path("VSD.Brain_3more.XX.XX.OT"));
 
-    vector<const fs::path> volume_paths
+    vector<fs::path> volume_paths =
     {
         flair_path,
         t1_path,
@@ -64,14 +64,14 @@ void addInstance(vector<DataInstance>& data, const fs::path& instance_path)
 
 
     ImageReader::Pointer reader = ImageReader::New();
-    reader->SetFileName(find_mha(gt_path).string());
+    reader->SetFileName(findMHA(gt_path).string());
     reader->Update();
     VolumePtr gt = reader->GetOutput();
     vector<VolumePtr> volumes;
 
     for (const fs::path& p : volume_paths)
     {
-        const fs::path mha_path = find_mha(p);
+        const fs::path mha_path = findMHA(p);
         reader->SetFileName(mha_path.string());
         reader->Update();
         volumes.push_back(reader->GetOutput());
@@ -122,40 +122,6 @@ int main(int argc, char *argv[])
     }
 
     std::cout << data.size() << std::endl;
-    // ConfigMap msrc_config
-    // {
-    //     { Vec3b(0, 0, 0), -1, "void" },
-    //     { Vec3b(0, 0, 128), 0, "building" },
-    //     { Vec3b(0, 128, 0), 1, "grass" },
-    //     { Vec3b(0, 128, 128), 2, "tree" },
-    //     { Vec3b(128, 0, 0), 3, "cow" },
-    //     { Vec3b(128, 128, 0), 4, "sheep" },
-    //     { Vec3b(128, 128, 128), 5, "sky" },
-    //     { Vec3b(0, 0, 192), 6, "airplane" },
-    //     { Vec3b(0, 128, 64), 7, "water" },
-    //     { Vec3b(0, 128, 192), 8, "face" },
-    //     { Vec3b(128, 0, 64), 9, "car" },
-    //     { Vec3b(128, 0, 192), 10, "bicycle" },
-    //     { Vec3b(128, 128, 64), 11, "flower" },
-    //     { Vec3b(128, 128, 192), 12, "sign" },
-    //     { Vec3b(0, 64, 0), 13, "bird" },
-    //     { Vec3b(0, 64, 128), 14, "book" },
-    //     { Vec3b(0, 192, 0), 15, "chair" },
-    //     { Vec3b(128, 64, 128), 16, "road" },
-    //     { Vec3b(128, 192, 0), 17, "cat" },
-    //     { Vec3b(128, 192, 128), 18, "dog" },
-    //     { Vec3b(0, 64, 64), 19, "body" },
-    //     { Vec3b(0, 64, 192), 20, "boot" },
-    //     { Vec3b(0, 0, 64), 21, "mountain" },
-    //     { Vec3b(128, 0, 128), 22, "sheep" }
-    // };
-
-    // const BgrMap& bgr_map = msrc_config.get<bgr>();
-    // const LabelMap& label_map = msrc_config.get<label>();
-
-
-    // std::sort(img_paths.begin(), img_paths.end());
-    // std::sort(gt_paths.begin(), gt_paths.end());
 
     // vector<int> all_labels;
     // vector<Mat> all_patches;

@@ -11,8 +11,10 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <GCoptimization.h>
 #include <forest/RandomForest.h>
+#include <util/eigen.h>
 #include <PatchFeature.h>
 #include <util.h>
+
 
 using namespace cv;
 using namespace std;
@@ -23,8 +25,8 @@ int main(int argc, char *argv[])
 {
     po::options_description opt("option");
     opt.add_options()
-        ("img_dir", po::value<string>())
-        ("gt_dir", po::value<string>())
+        ("img_dir", po::value<string>()->default_value("Images"))
+        ("gt_dir", po::value<string>()->default_value("GroundTruth"))
         ("train_split", po::value<string>()->default_value("Train.txt"))
         ("test_split", po::value<string>()->default_value("Test.txt"))
         ("patch_size", po::value<int>()->default_value(15))
@@ -60,7 +62,6 @@ int main(int argc, char *argv[])
         { Vec3b(0, 64, 64), 19, "body" },
         { Vec3b(0, 64, 192), 20, "boot" },
         { Vec3b(0, 0, 64), 21, "mountain" },
-        { Vec3b(128, 0, 128), 22, "sheep" }
     };
 
     const BgrMap& bgr_map = msrc_config.get<bgr>();
@@ -115,7 +116,7 @@ int main(int argc, char *argv[])
         append(all_labels, labels);
     }
 
-    std::vector<double> counts(24, 0);
+    std::vector<double> counts(23, 0);
     for (size_t i = 0; i < all_labels.size(); i++)
     {
         counts[all_labels[i]] += 1;
@@ -123,20 +124,21 @@ int main(int argc, char *argv[])
     std::cout << all_patches.size() << std::endl;
     std::cout << bgr_map.size() << std::endl;
 
-    for(int i = 0; i < 24; ++i) std::cout << counts[i] << std::endl;
+    for(int i = 0; i < 23; ++i) std::cout << counts[i] << std::endl;
 
     const std::function<PatchFeature ()> factory = std::bind(createPatchFeature, patch_size);
 
     const int n_classes = msrc_config.size();
-    const int n_trees = 8;
-    const int n_features = 400;//static_cast<int>(std::sqrt(feature_dim));
-    const int n_thres = 5;
-    const int max_depth = 10;
+    const int n_trees = 24;
+    const int n_features = 200;//static_cast<int>(std::sqrt(feature_dim));
+    const int n_thres = 50;
+    const int max_depth = 15;
     RandomForest<PatchFeature> forest(n_classes, n_trees, n_features, n_thres, max_depth);
 
-    std::vector<double> class_weight(24,0);
-    for(int i = 0; i < 24; ++i) class_weight[i] = 1.0 / counts[i];
-    forest.train(all_patches, all_labels, factory, class_weight);
+    std::vector<double> class_weight(23,0);
+    for(int i = 0; i < 23; ++i) class_weight[i] = 1.0 / counts[i];
+    const double sample_rate = 0.25;
+    forest.train(all_patches, all_labels, factory, class_weight, sample_rate);
 
     std::cout << "Done training\n";
 
@@ -148,7 +150,7 @@ int main(int argc, char *argv[])
     std::vector<int> n_corrects_per_class_gco(n_classes, 0);
 
     const double w = 64;
-    std::vector<double> smooth_cost(n_classes * n_classes, 64);
+    std::vector<double> smooth_cost(n_classes * n_classes, w);
     for (size_t i = 0; i < n_classes; i++)
     {
         smooth_cost[i + i * n_classes] = 0;
@@ -157,6 +159,9 @@ int main(int argc, char *argv[])
     const fs::path output_dir("output");
     const fs::path output_dir_gco("output_gco");
 
+    std::vector<int> gts,pred,pred_gco;
+    const double epsilon = 1e-7;
+    const double unary_coeff = 100;
     for (size_t i = n_training_imgs; i < img_paths.size(); ++i)
     {
         std::cout << i << std::endl;
@@ -178,12 +183,16 @@ int main(int argc, char *argv[])
 
         for (size_t p = 0; p < patches.size(); ++p)
         {
-            const int prediction = forest.predict(patches[p]);
-            const int label = labels[p];
-            if(label == 23) continue;
-
             const std::vector<double> dist = forest.predictDistribution(patches[p]);
-            append(unary_cost, dist);
+            const int prediction = argmax(dist);
+            const int label = labels[p];
+
+            for(double p: dist)
+            {
+                unary_cost.push_back(-unary_coeff * std::log(p + epsilon));
+            }
+            gts.push_back(label);
+            pred.push_back(prediction);
 
             n_tests += 1;
             n_corrects += (prediction == label ? 1 : 0);
@@ -192,32 +201,42 @@ int main(int argc, char *argv[])
             label_image.at<Vec3b>(p / cols, p % cols) = label_map.find(prediction-1)->bgr;
         }
 
-//        const boost::scoped_ptr<GCoptimization> gco(new GCoptimizationGridGraph(cols, rows, n_classes));
-//        gco->setDataCost(&unary_cost[0]);
-//        gco->setSmoothCost(&smooth_cost[0]);
-//        gco->expansion();
+        const int n_iteration = 5;
+        const boost::scoped_ptr<GCoptimization> gco(new GCoptimizationGridGraph(cols, rows, n_classes));
+        gco->setDataCost(&unary_cost[0]);
+        gco->setSmoothCost(&smooth_cost[0]);
+        gco->expansion(n_iteration);
 
-//        for (size_t r = 0; r < rows; ++r)
-//        {
-//            for (size_t c = 0; c < cols; ++c)
-//            {
-//                const int prediction = gco->whatLabel(c + r * cols);
-//                const int label = labels[c + r * n_classes];
-//                n_corrects_gco += (prediction == label ? 1 : 0);
-//                n_corrects_per_class_gco[label] += (prediction == label ? 1 : 0);
-
-//                label_image_gco.at<Vec3b>(r, c) = label_map.find(prediction-1)->bgr;
-//            }
-//        }
+        for (size_t r = 0; r < rows; ++r)
+        {
+            for (size_t c = 0; c < cols; ++c)
+            {
+                const int prediction = gco->whatLabel(c + r * cols);
+                const int label = labels[c + r * n_classes];
+                n_corrects_gco += (prediction == label ? 1 : 0);
+                n_corrects_per_class_gco[label] += (prediction == label ? 1 : 0);
+                pred_gco.push_back(prediction);
+                //std::cout << prediction - 1 << std::endl;
+                label_image_gco.at<Vec3b>(r, c) = label_map.find(prediction-1)->bgr;
+            }
+        }
 
         const fs::path save_path = fs::current_path() / output_dir / fs::path(img_paths[i]);
-//        const fs::path save_path_gco = fs::current_path() / output_dir_gco / fs::path(img_paths[i]);
+        const fs::path save_path_gco = fs::current_path() / output_dir_gco / fs::path(img_paths[i]);
 
         std::cout << save_path.string() << std::endl;
         imwrite(save_path.string(), label_image);
- //       imwrite(save_path_gco.string(), label_image_gco);
+        imwrite(save_path_gco.string(), label_image_gco);
 
     }
+
+    ofstream os1("gts");
+    ofstream os2("pred");
+    ofstream os3("pred_gco");
+
+    os1 << VectorMapper<int>(&gts[0], gts.size());
+    os2 << VectorMapper<int>(&pred[0], pred.size());
+    os3 << VectorMapper<int>(&pred_gco[0], pred_gco.size());
 
     std::cout << "******************* Unary Only ***********************\n";
     std::cout << "Overall accuracy: " << static_cast<double>(n_corrects) / n_tests << std::endl;
@@ -228,14 +247,14 @@ int main(int argc, char *argv[])
         std::cout << label_map.find(i-1)->name << ": " << static_cast<double>(n_corrects_per_class[i]) / n_tests_per_class[i] << std::endl;
     }
 
-//    std::cout << "******************* GCO ***********************\n";
-//    std::cout << "Overall accuracy: " << static_cast<double>(n_corrects_gco) / n_tests << std::endl;
-//    std::cout << "Individual accuracy:" << std::endl;
+    std::cout << "******************* GCO ***********************\n";
+    std::cout << "Overall accuracy: " << static_cast<double>(n_corrects_gco) / n_tests << std::endl;
+    std::cout << "Individual accuracy:" << std::endl;
 
-//    for (size_t i = 0; i < n_classes; i++)
-//    {
-//        std::cout << label_map.find(i-1)->name << ": " << static_cast<double>(n_corrects_per_class_gco[i]) / n_tests_per_class[i] << std::endl;
-//    }
+    for (size_t i = 0; i < n_classes; i++)
+    {
+        std::cout << label_map.find(i-1)->name << ": " << static_cast<double>(n_corrects_per_class_gco[i]) / n_tests_per_class[i] << std::endl;
+    }
     return 0;
 }
 
