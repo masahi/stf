@@ -1,7 +1,7 @@
 #include <memory>
 #include <algorithm>
-#include <Histogram.h>
 #include <vector>
+#include <forest/Histogram.h>
 
 class Node
 {

@@ -1,6 +1,0 @@
-forest/DecisionTree.h
-forest/feature.h
-forest/Histogram.h
-forest/RandomForest.h
-main.cpp
-forest/util.h

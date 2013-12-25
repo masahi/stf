@@ -2,12 +2,118 @@
 #include <algorithm>
 #include <iostream>
 #include <memory>
-#include <Histogram.h>
-#include <util.h>
+#include <function>
 #include <limits>
 #include <queue>
-#include <Node.h>
+#include <forest/Histogram.h>
 
+template <typename FeatureType>
+std::vector<FeatureType> generateRandomFeatures(const std::function<FeatureType()>& factory, int n)
+{
+    std::vector<FeatureType> features(n, factory());
+    std::generate(features.begin(), features.end(), factory);
+    return features;
+}
+
+void generateCandidateThreshold(std::vector<double>& threshold, const std::vector<double>& response, int n_threshold, int n_data)
+{
+    if (n_data != n_threshold)
+    {
+        for (int j = 0; j < threshold.size(); ++j)
+        {
+            threshold[j] = response[randInt(0, n_data)];
+        }
+    }
+    else
+    {
+        std::copy(response.begin(), response.end(), threshold.begin());
+    }
+
+    std::sort(threshold.begin(), threshold.end());
+
+//    if (threshold[0] == threshold[n_threshold])
+//    {
+//        continue;
+//    }
+
+    for (int j = 0; j < n_threshold; ++j)
+    {
+        threshold[j] = threshold[j] + (double)rand() / RAND_MAX * (threshold[j + 1] - threshold[j]);
+    }
+    //    if (n_data == n_threshold + 1)
+    //    {
+    //        std::copy(response.begin(), response.end(), threshold.begin());
+    //    }
+    //    else
+    //    {
+    //        for (int j = 0; j < threshold.size(); ++j)
+    //        {
+    //            threshold[j] = response[randInt(0, n_data)];
+    //        }
+    //    }
+
+    //    std::sort(threshold.begin(), threshold.end());
+
+    //    for (int j = 0; j < n_threshold; ++j)
+    //    {
+    //        threshold[j] = threshold[j] + static_cast<double>(rand()) / RAND_MAX * (threshold[j + 1] - threshold[j]);
+    //    }
+}
+
+double computeInfomationGain(const Histogram& parent, const Histogram& left, const Histogram& right)
+{
+	const int n_classes = parent.getNumberOfBins();
+	std::vector<double> parent_prob(n_classes, 0);
+	std::vector<double> left_prob(n_classes, 0);
+	std::vector<double> right_prob(n_classes, 0);
+	double parent_entoropy = 0;
+	for (int i = 0; i < n_classes; ++i)
+	{
+		parent_prob[i] = static_cast<double>(parent.getCounts(i)) / parent.getNumberOfSamples();
+		left_prob[i] = static_cast<double>(left.getCounts(i)) / left.getNumberOfSamples();
+		right_prob[i] = static_cast<double>(right.getCounts(i)) / right.getNumberOfSamples();
+
+		if (parent_prob[i] > 0)
+		{
+			parent_entoropy += -parent_prob[i] * std::log2(parent_prob[i]);
+		}
+	}
+
+	double left_entoropy = 0;
+	double right_entoropy = 0;
+
+	for (int i = 0; i < n_classes; ++i) {
+		if (left_prob[i] > 0) left_entoropy += -left_prob[i] * std::log2(left_prob[i]);
+		if (right_prob[i] > 0) right_entoropy += -right_prob[i] * std::log2(right_prob[i]);
+	}
+
+	double gain = parent_entoropy - static_cast<double>(left.getNumberOfSamples()) / parent.getNumberOfSamples() * left_entoropy
+		- static_cast<double>(right.getNumberOfSamples()) / parent.getNumberOfSamples() * right_entoropy;
+
+	return gain;
+}
+
+int partitionByResponse(std::vector<int>& indices, int from, int to, std::vector<double>& response, double threshold)
+{
+	assert(from < to);
+	int i = from;
+	int j = to - 1;
+
+	while (i <= j)
+	{
+		if (response[i - from] >= threshold)
+		{
+			std::swap(indices[i], indices[j]);
+			std::swap(response[i - from], response[j - from]);
+			--j;
+		}
+		else ++i;
+	}
+
+	return response[i - from] >= threshold ? i : i + 1;
+}
+
+class Node;
 
 template <typename FeatureType>
 class DecisionTree

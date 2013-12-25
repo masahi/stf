@@ -1,8 +1,6 @@
 #include <vector>
-#include <DecisionTree.h>
 #include <memory>
 #include <iostream>
-#include <util.h>
 #include <algorithm>
 #include <functional>
 #include <numeric>
@@ -11,6 +9,9 @@
 #include <tbb/parallel_for.h>
 #include <tbb/parallel_reduce.h>
 #include <tbb/blocked_range.h>
+#include <forest/DecisionTree.h>
+#include <util/general.h>
+#include <util/eigen.h>
 
 template <typename FeatureType>
 class RandomForest

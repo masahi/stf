@@ -4,13 +4,9 @@ add_definitions(-g  -gdwarf-2)
 find_package(OpenMP)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
 
-find_package(OpenCV REQUIRED)
-include_directories(${OpenCV_INCLUDE_DIRS})
-
-find_package(ITK REQUIRED)
-include(${ITK_USE_FILE})
+set(CMAKE_INCLUDE_DIR ON)
 
 set(TBB_INCLUDE_DIR /usr/include/ CACHE FILEPATH "")
 include_directories(${TBB_INCLUDE_DIR})
@@ -23,12 +19,7 @@ else()
  set(TBB_LIBRARIES tbb tbbmalloc)
 endif()
 
-set(GCO_DIR /home/masa/gco CACHE FILEPATH "")
-include_directories(${GCO_DIR})
-link_directories(${GCO_DIR}/build/Debug ${GCO_DIR}/build)
-set(GCO_LIB gco)
-
-set(BOOST_DIR /home/masa/boost_1_55_0 CACHE FILEPATH "")
+set(BOOST_DIR /home/masa/project/lib/boost_1_55_0 CACHE FILEPATH "")
 include_directories(${BOOST_DIR})
 set(BOOST_LIB_DIR ${BOOST_DIR}/stage/lib CACHE FILEPATH "")
 link_directories(${BOOST_LIB_DIR})
@@ -41,15 +32,12 @@ endif()
 set(EIGEN_DIR /usr/local/include CACHE FILEPATH "")
 include_directories(${EIGEN_DIR})
 
-file(GLOB HEADERS forest/*.h)
-set(LIBRARIES ${OpenCV_LIBS} ${TBB_LIBRARIES} ${BOOST_LIBS} ${GCO_LIB} ${ITK_LIBRARIES})
-#set(LIBRARIES ${OpenCV_LIBS} ${TBB_LIBRARIES} ${BOOST_LIBS} ${ITK_LIBRARIES})
+file(GLOB FOREST_HEADERS forest/*.h)
+set(GENERAL_LIBRARIES ${TBB_LIBRARIES} ${BOOST_LIBS})
 
-add_executable(test test.cpp ${HEADERS})
-target_link_libraries(test ${LIBRARIES})
+add_subdirectory(test)
+#add_subdirectory(msrc)
+#add_subdirectory(tumor)
 
-add_executable(msrc msrc.cpp ${HEADERS} )
-target_link_libraries(msrc ${LIBRARIES})
 
-add_executable(tumor tumor.cpp ${HEADERS} )
-target_link_libraries(tumor ${LIBRARIES})
+

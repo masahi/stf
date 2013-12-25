@@ -1,31 +1,5 @@
-#ifndef FEATURE_H
-#define FEATURE_H
-
-#include <util.h>
-#include <vector>
 #include <opencv2/core/core.hpp>
-
-class IdentityFeature
-{
-public:
-    IdentityFeature(int i,int dim) : 
-       index(i),
-       feature_dim(dim)
-   {
-   }
-
-   template <typename T>
-   double operator()(const std::vector<T>& v) const { return v[index];}
-
-   template <typename T>
-   double operator()(const Vector<T>& v) const { return v(index);}
-
-   const int getFeatureDim() const { return feature_dim; }
-
-private:
-   int index;
-   int feature_dim;
-};
+#include <forest/general.h>
 
 class PatchFeature
 {
@@ -68,11 +42,6 @@ private:
     int channel;
 };
 
-IdentityFeature createFeature(int dim)
-{
-    return  IdentityFeature(randInt(0,dim), dim);
-}
-
 PatchFeature createPatchFeature(int patch_size)
 {
     const int r = randInt(0,4);
@@ -90,6 +59,3 @@ PatchFeature createPatchFeature(int patch_size)
 
     return PatchFeature(patch_size,type, pos1, pos2, channel);
 }
-
-
-#endif // FEATURE_H
