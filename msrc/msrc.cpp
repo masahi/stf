@@ -149,7 +149,7 @@ int main(int argc, char *argv[])
     int n_corrects_gco = 0;
     std::vector<int> n_corrects_per_class_gco(n_classes, 0);
 
-    const double w = 64;
+    const double w = 32;
     std::vector<double> smooth_cost(n_classes * n_classes, w);
     for (size_t i = 0; i < n_classes; i++)
     {
@@ -212,7 +212,7 @@ int main(int argc, char *argv[])
             for (size_t c = 0; c < cols; ++c)
             {
                 const int prediction = gco->whatLabel(c + r * cols);
-                const int label = labels[c + r * n_classes];
+                const int label = labels[c + r * cols];
                 n_corrects_gco += (prediction == label ? 1 : 0);
                 n_corrects_per_class_gco[label] += (prediction == label ? 1 : 0);
                 pred_gco.push_back(prediction);
