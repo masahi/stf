@@ -2,31 +2,32 @@
 #include <iostream>
 #include <functional>
 #include <algorithm>
-#include <boost/timer.hpp>
+#include <boost/chrono/chrono.hpp>
 #include <forest/RandomForest.h>
 #include <IdentityFeature.h>
 #include <util.h>
 
 typedef std::function<IdentityFeature ()> FeatureFactory;
 
-template <>
-std::vector<IdentityFeature> generateRandomFeatures(const FeatureFactory& factory, int n)
-{
-    std::vector<IdentityFeature> features;
-    const int feature_dim = factory().getFeatureDim();
-    std::vector<int> feature_index(feature_dim);
-    std::iota(feature_index.begin(), feature_index.end(),0);
+//template <>
+//std::vector<IdentityFeature> generateRandomFeatures(const FeatureFactory& factory, int n)
+//{
+//    std::vector<IdentityFeature> features;
+//    const int feature_dim = factory().getFeatureDim();
+//    std::vector<int> feature_index(feature_dim);
+//    std::iota(feature_index.begin(), feature_index.end(),0);
 
-    for (int i = 0; i < n; ++i)
-    {
-        const int j = randInt(0, feature_dim - i);
-        std::swap(feature_index[feature_dim - i - 1], feature_index[j]);
-        features.push_back(IdentityFeature(feature_index[feature_dim - i - 1], feature_dim));
-    }
-    return features;
-}
+//    for (int i = 0; i < n; ++i)
+//    {
+//        const int j = randInt(0, feature_dim - i);
+//        std::swap(feature_index[feature_dim - i - 1], feature_index[j]);
+//        features.push_back(IdentityFeature(feature_index[feature_dim - i - 1], feature_dim));
+//    }
+//    return features;
+//}
 
 using namespace std;
+using namespace boost::chrono;
 
 int main(int argc, char *argv[])
 {
@@ -39,7 +40,6 @@ int main(int argc, char *argv[])
 
     const int n_classes = countUnique(y);
 
-    boost::timer t;
     const FeatureFactory factory = std::bind(createFeature, feature_dim);
     const int n_trees = 10;
     const int n_features = static_cast<int>(std::sqrt(feature_dim));
@@ -47,8 +47,15 @@ int main(int argc, char *argv[])
 
     const std::vector<double> weights(n_classes, 1.0/n_classes);
 
+    auto start = high_resolution_clock::now();
+
     RandomForest<IdentityFeature> forest(n_classes, n_trees, n_features);//, n_thres);
     forest.train(X, y, factory, weights);
+
+    auto end = high_resolution_clock::now();
+
+    duration<double> sec = end - start;
+    std::cout << "Training took " << sec.count() << " seconds\n";
 
     const string test_file(argv[3]);
 
@@ -68,7 +75,6 @@ int main(int argc, char *argv[])
     }
 
     std::cout << "Accuracy: " << static_cast<double>(n_correct) / n_test * 100 << std::endl;
-    std::cout << "Elapsed time: " << t.elapsed() << std::endl;
 
     return 0;
 }

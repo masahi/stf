@@ -9,7 +9,7 @@
 #include <set>
 #include <tuple>
 #include <map>
-
+#include <util/eigen.h>
 /*
   TODO: Needs more work here
 */

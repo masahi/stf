@@ -2,10 +2,12 @@
 #include <algorithm>
 #include <iostream>
 #include <memory>
-#include <function>
+#include <functional>
 #include <limits>
 #include <queue>
 #include <forest/Histogram.h>
+#include <forest/Node.h>
+#include <util/general.h>
 
 template <typename FeatureType>
 std::vector<FeatureType> generateRandomFeatures(const std::function<FeatureType()>& factory, int n)
@@ -113,7 +115,6 @@ int partitionByResponse(std::vector<int>& indices, int from, int to, std::vector
 	return response[i - from] >= threshold ? i : i + 1;
 }
 
-class Node;
 
 template <typename FeatureType>
 class DecisionTree

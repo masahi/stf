@@ -11,6 +11,7 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <GCoptimization.h>
 #include <forest/RandomForest.h>
+#include <PatchFeature.h>
 #include <util.h>
 
 using namespace cv;
@@ -24,10 +25,10 @@ int main(int argc, char *argv[])
     opt.add_options()
         ("img_dir", po::value<string>())
         ("gt_dir", po::value<string>())
-        ("train_split", po::value<string>()->default_value("split/Train.txt"))
-        ("test_split", po::value<string>()->default_value("split/Test.txt"))
-        ("patch_size", po::value<int>()->default_value(5))
-        ("subsample", po::value<int>()->default_value(3))
+        ("train_split", po::value<string>()->default_value("Train.txt"))
+        ("test_split", po::value<string>()->default_value("Test.txt"))
+        ("patch_size", po::value<int>()->default_value(15))
+        ("subsample", po::value<int>()->default_value(4))
         ;
 
     po::variables_map vm;
@@ -179,6 +180,7 @@ int main(int argc, char *argv[])
         {
             const int prediction = forest.predict(patches[p]);
             const int label = labels[p];
+            if(label == 23) continue;
 
             const std::vector<double> dist = forest.predictDistribution(patches[p]);
             append(unary_cost, dist);

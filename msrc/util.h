@@ -110,9 +110,6 @@ std::tuple<std::vector<cv::Mat>, std::vector<int> > extractPatches(const cv::Mat
 				}
 				else
 				{
-//					std::cout << (int)bgr[0] << "," << (int)bgr[1] << "," << (int)bgr[2] << ",";
-//					std::cout << r - rad << "," << c - rad << std::endl;
-//					std::cout << bgr_map.find(bgr)->label << std::endl;
                     labels.push_back(bgr_map.find(bgr)->label+1);
 					patches.push_back(padded(roi));
 				}

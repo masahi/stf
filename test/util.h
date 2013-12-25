@@ -3,7 +3,7 @@
 #include <tuple>
 #include <sstream>
 #include <fstream>
-#include <boost/algrithm/string.hpp>
+#include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
 #include <Eigen/Core>
 

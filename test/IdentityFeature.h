@@ -1,6 +1,6 @@
 #include <vector>
-#include <forest/general.h>
-#include <forest/eigen.h>
+#include <util/general.h>
+#include <util/eigen.h>
 
 class IdentityFeature
 {

@@ -1,5 +1,5 @@
 #include <opencv2/core/core.hpp>
-#include <forest/general.h>
+#include <util/general.h>
 
 class PatchFeature
 {
