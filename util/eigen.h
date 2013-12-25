@@ -10,6 +10,12 @@ template <typename T>
 using Vector = Eigen::Matrix<T, Eigen::Dynamic, 1>;
 
 template <typename T>
+using MatrixMapper = Eigen::Map<Matrix<T>>;
+
+template <typename T>
+using ConstMatrixMapper = Eigen::Map<const Matrix<T>>;
+
+template <typename T>
 using VectorMapper = Eigen::Map<Vector<T>>;
 
 template <typename T>

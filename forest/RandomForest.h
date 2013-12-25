@@ -56,8 +56,8 @@ public:
 
     template <typename D>
     std::vector<double> predictDistribution(const D &x) {
-        std::vector<double> zeros(n_classes, 0);
 
+        std::vector<double> zeros(n_classes, 0);
         std::vector<double> unnormalized =
             tbb::parallel_reduce(tbb::blocked_range<int>(0, n_trees),
             zeros,

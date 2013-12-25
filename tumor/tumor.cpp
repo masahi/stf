@@ -3,6 +3,7 @@
 #include <iostream>
 #include <functional>
 #include <map>
+#include <tuple>
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/program_options.hpp>
@@ -10,19 +11,26 @@
 #include <itkImage.h>
 #include <itkImageFileReader.h>
 #include <forest/RandomForest.h>
+#include <util/eigen.h>
+#include <gmm/GMM.h>
 
 typedef itk::Image<short, 3> Volume;
 typedef Volume::Pointer VolumePtr;
+typedef itk::Image<double, 3> DoubleVolume;
+typedef DoubleVolume::Pointer DoubleVolumePtr;
+typedef Volume::IndexType Index;
 typedef itk::ImageFileReader<Volume> ImageReader;
+typedef std::vector<std::vector<VolumePtr>> MRDataSet;
+typedef std::vector<std::tuple<std::vector<VolumePtr>, std::vector<DoubleVolumePtr>>> DataSet;
 
 struct DataInstance
 {
     DataInstance(const std::vector<VolumePtr>& vols, const VolumePtr& g, int x_, int y_, int z_) :
-        volumes(vols),
-        gt(g),
-        x(x_),
-        y(y_),
-        z(z_)
+    volumes(vols),
+    gt(g),
+    x(x_),
+    y(y_),
+    z(z_)
     {
     }
 
@@ -46,7 +54,7 @@ fs::path findMHA(const fs::path& dir_path) {
     return it->path();
 }
 
-void addInstance(vector<DataInstance>& data, const fs::path& instance_path)
+void addInstance(const fs::path& instance_path, MRDataSet& data, std::vector<VolumePtr>& gts, std::vector<std::vector<double>>& gmm_data)
 {
     const fs::path flair_path(instance_path / fs::path("VSD.Brain.XX.O.MR_Flair"));
     const fs::path t1_path(instance_path / fs::path("VSD.Brain.XX.O.MR_T1"));
@@ -62,25 +70,28 @@ void addInstance(vector<DataInstance>& data, const fs::path& instance_path)
         t2_path
     };
 
-
-    ImageReader::Pointer reader = ImageReader::New();
-    reader->SetFileName(findMHA(gt_path).string());
-    reader->Update();
-    VolumePtr gt = reader->GetOutput();
+    ImageReader::Pointer gt_reader = ImageReader::New();
+    gt_reader->SetFileName(findMHA(gt_path).string());
+    gt_reader->Update();
+    VolumePtr gt = gt_reader->GetOutput();
+    gts.push_back(gt);
     vector<VolumePtr> volumes;
+
+    const auto size = gt->GetLargestPossibleRegion().GetSize();
+    const int width = size[0];
+    const int height = size[1]; 
+    const int depth = size[2];
 
     for (const fs::path& p : volume_paths)
     {
+        ImageReader::Pointer reader = ImageReader::New();
         const fs::path mha_path = findMHA(p);
         reader->SetFileName(mha_path.string());
         reader->Update();
         volumes.push_back(reader->GetOutput());
     }
 
-    const auto size = volumes[0]->GetLargestPossibleRegion().GetSize();
-    const int width = size[0];
-    const int height = size[1];
-    const int depth = size[2];
+    data.push_back(volumes);
 
     for (int z = 0; z < depth; ++z)
     {
@@ -88,11 +99,21 @@ void addInstance(vector<DataInstance>& data, const fs::path& instance_path)
         {
             for (int x = 0; x < width; ++x)
             {
-                data.push_back(DataInstance(volumes, gt, x, y, z));
+                Index index;
+                index[0] = x;
+                index[1] = y;
+                index[2] = z;
+                const short label = gt->GetPixel(index);
+                assert(label <= 4);
+                if (label > 4) continue;
+                for (int i = 0; i < 4; ++i)
+                {
+                    const double v = static_cast<double>(volumes[i]->GetPixel(index));
+                    gmm_data[label].push_back(v);
+                }
             }
         }
     }
-
 
 }
 
@@ -111,152 +132,87 @@ int main(int argc, char *argv[])
 
     const fs::path data_dir(vm["data_dir"].as<string>());
     fs::directory_iterator dir_iter(data_dir);
-    std::vector<DataInstance> data;
+    MRDataSet mr_data;
+    std::vector<VolumePtr> gts;
+    std::vector<std::vector<double>> gmm_data(5);
 
     int c = 0;
     for (; dir_iter != fs::directory_iterator(); ++dir_iter, ++c)
     {
         const fs::path instance(dir_iter->path());
-        addInstance(data, instance);
-        if (c > 2) break;
+        addInstance(instance, mr_data, gts, gmm_data);
+        break;
     }
 
-    std::cout << data.size() << std::endl;
+    const int n_classes = 5;
+    const int n_component = 5;
+    const int n_mr_channels = 4;
+    std::vector<GMM<double>> gmms;
+    for (int i = 0; i < n_classes; ++i)
+    {
+        std::cout << "Training " << i << " th gmm.\n";
+        const int rows = gmm_data[i].size() / n_mr_channels;
+        Matrix<double> X = MatrixMapper<double>(&gmm_data[i][0], n_mr_channels, rows).transpose();
+        GMM<double> gmm(n_component);
+        gmm.train(X);
+        gmms.push_back(gmm);
+    }
 
-    // vector<int> all_labels;
-    // vector<Mat> all_patches;
-    // const int subsample = vm["subsample"].as<int>();
+    return 0;
+    DataSet data;
+    for (int i = 0; i < mr_data.size(); ++i)
+    {
+        const auto size = mr_data[i][0]->GetLargestPossibleRegion().GetSize();
+        const int width = size[0];
+        const int height = size[1];
+        const int depth = size[2];
 
-    // for (int i = 0; i < img_paths.size(); i += 2)
-    // {
-    //     const Mat img = imread(img_paths[i]);
-    //     const Mat gt = imread(gt_paths[i]);
+        std::vector<DoubleVolumePtr> gmm_volumes;
+        itk::Index<3> start;
+        start.Fill(0);
+        itk::Size<3> dim;
+        dim[0] = width;
+        dim[1] = height;
+        dim[2] = depth;
+        DoubleVolume::RegionType region(start, dim);
+        
+        for (int j = 0; j < n_classes; ++j)
+        {
+            gmm_volumes[i] = DoubleVolume::New();
+            gmm_volumes[i]->SetRegions(region);
+            gmm_volumes[i]->Allocate();
+        }
+        
+        for (int z = 0; z < depth; ++z)
+        {
+            for (int y = 0; y < height; ++y)
+            {
+                for (int x = 0; x < width; ++x)
+                {
+                    const int ix = x + y * width + z * width * height;
+                    Index index;
+                    index[0] = x;
+                    index[1] = y;
+                    index[2] = z;
 
+                    Vector<double> X(n_mr_channels);
+                    for (int c = 0; c < n_mr_channels; ++c)
+                    {
+                        X(c) = static_cast<double>(mr_data[i][c]->GetPixel(index));
+                    }
 
-    //     vector<int> labels;
-    //     vector<Mat> patches;
+                    for (int j = 0; j < n_classes; ++j)
+                    {
+                        const double v = gmms[j].evaluate(X);
+                        gmm_volumes[j]->SetPixel(index, v);
+                    }
+                }
+            }
+        }
 
-    //     tie(patches, labels) = extractPatches(img, gt, bgr_map, patch_size, subsample);
+        data.push_back(std::make_tuple(mr_data[i], gmm_volumes));
+    }
 
-    //     append(all_patches, patches);
-    //     append(all_labels, labels);
-    // }
-
-    // std::vector<int> counts(24, 0);
-    // for (size_t i = 0; i < all_labels.size(); i++)
-    // {
-    //     counts[all_labels[i] + 1] += 1;
-    // }
-    // std::cout << all_patches.size() << std::endl;
-    // std::cout << bgr_map.size() << std::endl;
-
-
-    // const std::function<PatchFeature ()> factory = std::bind(createPatchFeature, patch_size);
-
-    // const int n_classes = msrc_config.size();
-    // const int n_trees = 5;
-    // const int n_features = 400;//static_cast<int>(std::sqrt(feature_dim));
-    // const int n_thres = 5;
-    // const int max_depth = 10;
-    // const std::vector<double> weights(n_classes, 1.0/n_classes);
-
-    // RandomForest<PatchFeature> forest(n_classes, n_trees, n_features, n_thres, max_depth);
-    // forest.train(all_patches, all_labels, factory,weights);
-
-    // std::cout << "Done trainging\n";
-
-    // int n_tests = 0;
-    // std::vector<int> n_tests_per_class(n_classes - 1, 0);
-    // int n_corrects = 0;
-    // std::vector<int> n_corrects_per_class(n_classes - 1, 0);
-    // int n_corrects_gco = 0;
-    // std::vector<int> n_corrects_per_class_gco(n_classes - 1, 0);
-
-    // std::vector<double> smooth_cost(n_classes * n_classes, 0);
-    // const double w = 64;
-    // for (size_t i = 0; i < n_classes; i++)
-    // {
-    //     smooth_cost[i + i * n_classes] = w;
-    // }
-
-    // const fs::path output_dir("output");
-    // const fs::path output_dir_gco("output_gco");
-
-    // for (size_t i = 1; i < img_paths.size(); i += 2)
-    // {
-    //     const Mat img = imread(img_paths[i]);
-    //     const Mat gt = imread(gt_paths[i]);
-
-    //     const int rows = img.rows;
-    //     const int cols = img.cols;
-
-    //     vector<int> labels;
-    //     vector<Mat> patches;
-
-    //     std::vector<double> unary_cost;
-
-    //     tie(patches, labels) = extractPatches(img, gt, bgr_map, patch_size, 1, true);
-
-    //     Mat label_image(rows, cols, CV_8UC3);
-    //     Mat label_image_gco(rows, cols, CV_8UC3);
-
-    //     for (size_t p = 0; p < patches.size(); ++p)
-    //     {
-    //         const int prediction = forest.predict(patches[p]);
-    //         const int label = labels[p];
-
-    //         const std::vector<double> dist = forest.predictDistribution(patches[p]);
-    //         append(unary_cost, dist);
-
-    //         n_tests += 1;
-    //         n_corrects += (prediction == label ? 1 : 0);
-    //         n_tests_per_class[label] += 1;
-    //         n_corrects_per_class[label] += (prediction == label ? 1 : 0);
-    //         label_image.at<Vec3b>(p / cols, p % cols) = label_map.find(prediction)->bgr;
-    //     }
-
-    //     const boost::scoped_ptr<GCoptimization> gco(new GCoptimizationGridGraph(cols, rows, n_classes));
-    //     gco->setDataCost(&unary_cost[0]);
-    //     gco->setSmoothCost(&smooth_cost[0]);
-    //     gco->expansion();
-
-    //     for (size_t r = 0; r < rows; ++r)
-    //     {
-    //         for (size_t c = 0; c < cols; ++c)
-    //         {
-    //             const int prediction = gco->whatLabel(c + r * n_classes);
-    //             const int label = labels[c + r * n_classes];
-    //             n_corrects_gco += (prediction == label ? 1 : 0);
-    //             n_corrects_per_class_gco[label] += (prediction == label ? 1 : 0);
-
-    //             label_image_gco.at<Vec3b>(r, c) = label_map.find(prediction)->bgr;
-    //         }
-    //     }
-
-    //     const fs::path save_path = fs::current_path() / output_dir / fs::path(img_paths[i]);
-    //     const fs::path save_path_gco = fs::current_path() / output_dir_gco / fs::path(img_paths[i]);
-
-    //     imwrite(save_path.string(), label_image);
-    //     imwrite(save_path_gco.string(), label_image_gco);
-    // }
-
-    // std::cout << "******************* Unary Only ***********************\n";
-    // std::cout << "Overall accuracy: " << static_cast<double>(n_corrects) / n_tests << std::endl;
-    // std::cout << "Individual accuracy:" << std::endl;
-
-    // for (size_t i = 0; i < n_classes - 1; i++)
-    // {
-    //     std::cout << label_map.find(i)->name << ": " << static_cast<double>(n_corrects_per_class[i]) / n_tests_per_class[i] << std::endl;
-    // }
-
-    // std::cout << "******************* GCO ***********************\n";
-    // std::cout << "Overall accuracy: " << static_cast<double>(n_corrects_gco) / n_tests << std::endl;
-    // std::cout << "Individual accuracy:" << std::endl;
-
-    // for (size_t i = 0; i < n_classes - 1; i++)
-    // {
-    //     std::cout << label_map.find(i)->name << ": " << static_cast<double>(n_corrects_per_class_gco[i]) / n_tests_per_class[i] << std::endl;
-    // }
     return 0;
 }
 
