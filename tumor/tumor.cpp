@@ -4,6 +4,8 @@
 #include <functional>
 #include <map>
 #include <tuple>
+#include <omp.h>
+#include <boost/chrono/chrono.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/program_options.hpp>
@@ -40,6 +42,7 @@ struct DataInstance
 };
 
 using namespace std;
+using namespace boost::chrono;
 namespace fs = boost::filesystem;
 namespace po = boost::program_options;
 
@@ -93,6 +96,7 @@ void addInstance(const fs::path& instance_path, MRDataSet& data, std::vector<Vol
 
     data.push_back(volumes);
 
+    std::array<double,5> rate = {0.01, 0.6, 0.1, 1.0, 0.3};
     for (int z = 0; z < depth; ++z)
     {
         for (int y = 0; y < height; ++y)
@@ -106,11 +110,18 @@ void addInstance(const fs::path& instance_path, MRDataSet& data, std::vector<Vol
                 const short label = gt->GetPixel(index);
                 assert(label <= 4);
                 if (label > 4) continue;
+                double p = (double)rand()/RAND_MAX;
+                if(p > rate[label]) continue;
+                std::vector<double> values(4);
+                bool inside = true;
                 for (int i = 0; i < 4; ++i)
                 {
                     const double v = static_cast<double>(volumes[i]->GetPixel(index));
-                    gmm_data[label].push_back(v);
+                    if(label == 0 && v == 0) inside = false;
+                    else values[i] = v;
                 }
+                if(!inside) continue;
+                else append(gmm_data[label], values);
             }
         }
     }
@@ -121,7 +132,7 @@ int main(int argc, char *argv[])
 {
     po::options_description opt("option");
     opt.add_options()
-        ("data_dir", po::value<string>())
+        ("data_dir", po::value<string>()->default_value("HG"))
         ("patch_size", po::value<int>()->default_value(5))
         ("subsample", po::value<int>()->default_value(3))
         ;
@@ -137,29 +148,40 @@ int main(int argc, char *argv[])
     std::vector<std::vector<double>> gmm_data(5);
 
     int c = 0;
+    const int n_training_instances = 12;
     for (; dir_iter != fs::directory_iterator(); ++dir_iter, ++c)
     {
+        if(c == n_training_instances) break;
         const fs::path instance(dir_iter->path());
         addInstance(instance, mr_data, gts, gmm_data);
-        break;
     }
 
     const int n_classes = 5;
-    const int n_component = 5;
+    const int n_components = 5;
     const int n_mr_channels = 4;
-    std::vector<GMM<double>> gmms;
+    std::vector<GMM<double>> gmms(n_classes, GMM<double>(n_components));
+
+    const int n_threads = 8;
+    omp_set_num_threads(n_threads);
+    const auto start = high_resolution_clock::now();
+#pragma omp parallel for
     for (int i = 0; i < n_classes; ++i)
     {
-        std::cout << "Training " << i << " th gmm.\n";
+    //    std::cout << "Training " << i << " th gmm.\n";
         const int rows = gmm_data[i].size() / n_mr_channels;
         Matrix<double> X = MatrixMapper<double>(&gmm_data[i][0], n_mr_channels, rows).transpose();
-        GMM<double> gmm(n_component);
-        gmm.train(X);
-        gmms.push_back(gmm);
+        gmms[i].train(X);
     }
 
-    return 0;
-    DataSet data;
+    const auto end = high_resolution_clock::now();
+    const duration<double> t = end - start;
+    std::cout << t.count() << std::endl;
+   // return 0;
+
+    const auto start2 = high_resolution_clock::now();
+    DataSet data(mr_data.size());
+
+#pragma omp parallel for
     for (int i = 0; i < mr_data.size(); ++i)
     {
         const auto size = mr_data[i][0]->GetLargestPossibleRegion().GetSize();
@@ -178,9 +200,9 @@ int main(int argc, char *argv[])
         
         for (int j = 0; j < n_classes; ++j)
         {
-            gmm_volumes[i] = DoubleVolume::New();
-            gmm_volumes[i]->SetRegions(region);
-            gmm_volumes[i]->Allocate();
+            gmm_volumes.push_back(DoubleVolume::New());
+            gmm_volumes[j]->SetRegions(region);
+            gmm_volumes[j]->Allocate();
         }
         
         for (int z = 0; z < depth; ++z)
@@ -190,6 +212,7 @@ int main(int argc, char *argv[])
                 for (int x = 0; x < width; ++x)
                 {
                     const int ix = x + y * width + z * width * height;
+          //          std::cout << ix << std::endl;
                     Index index;
                     index[0] = x;
                     index[1] = y;
@@ -203,15 +226,20 @@ int main(int argc, char *argv[])
 
                     for (int j = 0; j < n_classes; ++j)
                     {
-                        const double v = gmms[j].evaluate(X);
+                        double v = 0;
+                        if(X(0) != 0) v = gmms[j].evaluate(X);
                         gmm_volumes[j]->SetPixel(index, v);
                     }
                 }
             }
         }
 
-        data.push_back(std::make_tuple(mr_data[i], gmm_volumes));
+        data[i] = std::make_tuple(mr_data[i], gmm_volumes);
     }
+
+    const auto end2 = high_resolution_clock::now();
+    const duration<double> t2 = end2 - start2;
+    std::cout << t2.count() << std::endl;
 
     return 0;
 }

@@ -62,7 +62,7 @@ public:
     {
     }
 
-    void train(const Matrix<T>& data, int max_iter = 100)
+    void train(const Matrix<T>& data, int max_iter = 1000)
     {
         X = data;
         N = X.rows();
@@ -81,9 +81,9 @@ public:
             mstep(gamma);
             const float diff = (ll_new - ll).norm();
             const float ll_norm = ll_new.norm();
-            std::cout << ll_norm << std::endl;
+            //std::cout << ll_norm << std::endl;
             if (n > 0 && diff < THRESHOLD) {
-                std::cout << "Converged in " << n + 1 << " iteration.\n";
+             //   std::cout << "Converged in " << n + 1 << " iteration.\n";
                 break;
             }
             ll = ll_new;
