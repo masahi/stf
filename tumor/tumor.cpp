@@ -76,7 +76,7 @@ VolumePtr<T> createVolume(int width, int height, int depth)
     dim[2] = depth;
 
     VolumePtr<T> vol = Volume<T>::New();
-    Volume<T>::RegionType region(start, dim);
+    typename Volume<T>::RegionType region(start, dim);
     vol->SetRegions(region);
     vol->Allocate();
     
