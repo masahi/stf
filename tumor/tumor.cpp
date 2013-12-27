@@ -11,23 +11,31 @@
 #include <boost/program_options.hpp>
 #include <boost/timer.hpp>
 #include <itkImage.h>
+#include <itkImageFileWriter.h>
+#include <itkBinaryThresholdImageFilter.h>
 #include <itkImageFileReader.h>
 #include <forest/RandomForest.h>
 #include <util/eigen.h>
 #include <gmm/GMM.h>
 
-typedef itk::Image<short, 3> Volume;
-typedef Volume::Pointer VolumePtr;
-typedef itk::Image<double, 3> DoubleVolume;
-typedef DoubleVolume::Pointer DoubleVolumePtr;
-typedef Volume::IndexType Index;
-typedef itk::ImageFileReader<Volume> ImageReader;
-typedef std::vector<std::vector<VolumePtr>> MRDataSet;
-typedef std::vector<std::tuple<std::vector<VolumePtr>, std::vector<DoubleVolumePtr>>> DataSet;
+template <typename T>
+using Volume = itk::Image<T, 3>;
+
+template <typename T>
+using VolumePtr = typename Volume<T>::Pointer;
+
+template <typename T>
+using Index = typename Volume<T>::IndexType;
+
+template <typename T>
+using VolumeVector = std::vector<VolumePtr<T>>;
+
+typedef std::tuple<VolumeVector<short>, VolumeVector<double>, VolumePtr<unsigned char>> Instance;
+typedef std::vector<Instance> DataSet;
 
 struct DataInstance
 {
-    DataInstance(const std::vector<VolumePtr>& vols, const VolumePtr& g, int x_, int y_, int z_) :
+    DataInstance(const VolumeVector<short>& vols, const VolumePtr<short>& g, int x_, int y_, int z_) :
     volumes(vols),
     gt(g),
     x(x_),
@@ -36,8 +44,8 @@ struct DataInstance
     {
     }
 
-    const std::vector<VolumePtr>& volumes;
-    const VolumePtr& gt;
+    const VolumeVector<short>& volumes;
+    const VolumePtr<short>& gt;
     const int x, y, z;
 };
 
@@ -57,7 +65,36 @@ fs::path findMHA(const fs::path& dir_path) {
     return it->path();
 }
 
-void addInstance(const fs::path& instance_path, MRDataSet& data, std::vector<VolumePtr>& gts, std::vector<std::vector<double>>& gmm_data)
+template <typename T>
+VolumePtr<T> createVolume(int width, int height, int depth)
+{
+    itk::Index<3> start;
+    start.Fill(0);
+    itk::Size<3> dim;
+    dim[0] = width;
+    dim[1] = height;
+    dim[2] = depth;
+
+    VolumePtr<T> vol = Volume<T>::New();
+    Volume<T>::RegionType region(start, dim);
+    vol->SetRegions(region);
+    vol->Allocate();
+    
+    return vol;
+}
+
+template <typename T>
+std::tuple<int, int, int> getVolumeDimension(const VolumePtr<T>& vol)
+{
+    const auto size = vol->GetLargestPossibleRegion().GetSize();
+    const int width = size[0];
+    const int height = size[1];
+    const int depth = size[2];
+
+    return std::make_tuple(width, height, depth);
+}
+
+void addInstance(const fs::path& instance_path, std::vector<VolumeVector<short>>& mrs, VolumeVector<unsigned char>& masks, VolumeVector<short>& gts, std::vector<std::vector<double>>& gmm_data)
 {
     const fs::path flair_path(instance_path / fs::path("VSD.Brain.XX.O.MR_Flair"));
     const fs::path t1_path(instance_path / fs::path("VSD.Brain.XX.O.MR_T1"));
@@ -73,17 +110,16 @@ void addInstance(const fs::path& instance_path, MRDataSet& data, std::vector<Vol
         t2_path
     };
 
+    typedef itk::ImageFileReader<Volume<short>> ImageReader;
     ImageReader::Pointer gt_reader = ImageReader::New();
     gt_reader->SetFileName(findMHA(gt_path).string());
     gt_reader->Update();
-    VolumePtr gt = gt_reader->GetOutput();
+    VolumePtr<short> gt = gt_reader->GetOutput();
     gts.push_back(gt);
-    vector<VolumePtr> volumes;
+    VolumeVector<short> volumes;
 
-    const auto size = gt->GetLargestPossibleRegion().GetSize();
-    const int width = size[0];
-    const int height = size[1]; 
-    const int depth = size[2];
+    int width, height, depth;
+    std::tie(width, height, depth) = getVolumeDimension<short>(gt);
 
     for (const fs::path& p : volume_paths)
     {
@@ -94,34 +130,51 @@ void addInstance(const fs::path& instance_path, MRDataSet& data, std::vector<Vol
         volumes.push_back(reader->GetOutput());
     }
 
-    data.push_back(volumes);
+    mrs.push_back(volumes);
 
-    std::array<double,5> rate = {0.01, 0.6, 0.1, 1.0, 0.3};
+    typedef itk::BinaryThresholdImageFilter<Volume<short>, Volume<unsigned char>> ThresholdFilter;
+    ThresholdFilter::Pointer thres = ThresholdFilter::New();
+    thres->SetInput(volumes[0]);
+    thres->SetLowerThreshold(1);
+    thres->SetInsideValue(1);
+    thres->SetOutsideValue(0);
+    thres->Update();
+
+    VolumePtr<unsigned char> mask = thres->GetOutput();
+    masks.push_back(mask);
+    //const char* filename = "mask.mha";
+    //typedef itk::ImageFileWriter<MaskVolume> Writer;
+    //Writer::Pointer writer = Writer::New();
+    //writer->SetInput(mask);
+    //writer->SetFileName(filename);
+    //writer->Update();
+
+    //const unsigned char* mask_ptr = mask->GetBufferPointer();
+    //const short* gt_ptr = gt->GetBufferPointer();
+    //std::vector<const short*> volume_ptrs;
+    //for (VolumePtr ptr : volumes) volume_ptrs.push_back(ptr->GetBufferPointer());
+
+    std::array<double, 5> rate = { 0.01, 0.6, 0.1, 1.0, 0.3 };
     for (int z = 0; z < depth; ++z)
     {
         for (int y = 0; y < height; ++y)
         {
             for (int x = 0; x < width; ++x)
             {
-                Index index;
+                Index<short> index;
                 index[0] = x;
                 index[1] = y;
                 index[2] = z;
+                if (mask->GetPixel(index) == 0) continue;
                 const short label = gt->GetPixel(index);
                 assert(label <= 4);
-                if (label > 4) continue;
-                double p = (double)rand()/RAND_MAX;
-                if(p > rate[label]) continue;
-                std::vector<double> values(4);
-                bool inside = true;
+                const double p = (double)rand() / RAND_MAX;
+                if (p > rate[label]) continue;
                 for (int i = 0; i < 4; ++i)
                 {
                     const double v = static_cast<double>(volumes[i]->GetPixel(index));
-                    if(label == 0 && v == 0) inside = false;
-                    else values[i] = v;
+                    gmm_data[label].push_back(v);
                 }
-                if(!inside) continue;
-                else append(gmm_data[label], values);
             }
         }
     }
@@ -143,18 +196,22 @@ int main(int argc, char *argv[])
 
     const fs::path data_dir(vm["data_dir"].as<string>());
     fs::directory_iterator dir_iter(data_dir);
-    MRDataSet mr_data;
-    std::vector<VolumePtr> gts;
+
+    std::vector<VolumeVector<short>> mr_data;
+    std::vector<VolumePtr<short>> gts;
+    std::vector<VolumePtr<unsigned char>> masks;
     std::vector<std::vector<double>> gmm_data(5);
 
     int c = 0;
     const int n_training_instances = 12;
     for (; dir_iter != fs::directory_iterator(); ++dir_iter, ++c)
     {
-        if(c == n_training_instances) break;
+        if (c == n_training_instances) break;
         const fs::path instance(dir_iter->path());
-        addInstance(instance, mr_data, gts, gmm_data);
+        addInstance(instance, mr_data, masks, gts, gmm_data);
+        if(c == n_training_instances);
     }
+
 
     const int n_classes = 5;
     const int n_components = 5;
@@ -164,10 +221,11 @@ int main(int argc, char *argv[])
     const int n_threads = 8;
     omp_set_num_threads(n_threads);
     const auto start = high_resolution_clock::now();
+
 #pragma omp parallel for
     for (int i = 0; i < n_classes; ++i)
     {
-    //    std::cout << "Training " << i << " th gmm.\n";
+        //    std::cout << "Training " << i << " th gmm.\n";
         const int rows = gmm_data[i].size() / n_mr_channels;
         Matrix<double> X = MatrixMapper<double>(&gmm_data[i][0], n_mr_channels, rows).transpose();
         gmms[i].train(X);
@@ -176,7 +234,7 @@ int main(int argc, char *argv[])
     const auto end = high_resolution_clock::now();
     const duration<double> t = end - start;
     std::cout << t.count() << std::endl;
-   // return 0;
+    // return 0;
 
     const auto start2 = high_resolution_clock::now();
     DataSet data(mr_data.size());
@@ -184,27 +242,15 @@ int main(int argc, char *argv[])
 #pragma omp parallel for
     for (int i = 0; i < mr_data.size(); ++i)
     {
-        const auto size = mr_data[i][0]->GetLargestPossibleRegion().GetSize();
-        const int width = size[0];
-        const int height = size[1];
-        const int depth = size[2];
+        int width, height, depth;
+        std::tie(width, height, depth) = getVolumeDimension<short>(mr_data[i][0]);
 
-        std::vector<DoubleVolumePtr> gmm_volumes;
-        itk::Index<3> start;
-        start.Fill(0);
-        itk::Size<3> dim;
-        dim[0] = width;
-        dim[1] = height;
-        dim[2] = depth;
-        DoubleVolume::RegionType region(start, dim);
-        
+        std::vector<VolumePtr<double>> gmm_volumes(n_classes);
         for (int j = 0; j < n_classes; ++j)
         {
-            gmm_volumes.push_back(DoubleVolume::New());
-            gmm_volumes[j]->SetRegions(region);
-            gmm_volumes[j]->Allocate();
+            gmm_volumes[j] = createVolume<double>(width, height, depth);
         }
-        
+
         for (int z = 0; z < depth; ++z)
         {
             for (int y = 0; y < height; ++y)
@@ -212,11 +258,14 @@ int main(int argc, char *argv[])
                 for (int x = 0; x < width; ++x)
                 {
                     const int ix = x + y * width + z * width * height;
-          //          std::cout << ix << std::endl;
-                    Index index;
+                    //          std::cout << ix << std::endl;
+                    Index<double> index;
                     index[0] = x;
                     index[1] = y;
                     index[2] = z;
+
+                    bool inside = true;
+                    if (masks[i]->GetPixel(index) == 0) inside = false;
 
                     Vector<double> X(n_mr_channels);
                     for (int c = 0; c < n_mr_channels; ++c)
@@ -227,14 +276,14 @@ int main(int argc, char *argv[])
                     for (int j = 0; j < n_classes; ++j)
                     {
                         double v = 0;
-                        if(X(0) != 0) v = gmms[j].evaluate(X);
+                        if (inside) v = gmms[j].evaluate(X);
                         gmm_volumes[j]->SetPixel(index, v);
                     }
                 }
             }
         }
 
-        data[i] = std::make_tuple(mr_data[i], gmm_volumes);
+        data[i] = std::make_tuple(mr_data[i], gmm_volumes, masks[i]);
     }
 
     const auto end2 = high_resolution_clock::now();
