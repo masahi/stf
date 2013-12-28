@@ -17,7 +17,7 @@ template <typename T>
 using VolumeVector = std::vector<VolumePtr<T>>;
 
 template <typename T>
-VolumePtr<T> createVolume(int width, int height, int depth)
+VolumePtr<T> createVolume(int width, int height, int depth, const itk::Vector<double, 3>& spacing, const itk::Point<double, 3>& origin)
 {
     itk::Index<3> start;
     start.Fill(0);
@@ -29,6 +29,8 @@ VolumePtr<T> createVolume(int width, int height, int depth)
     VolumePtr<T> vol = Volume<T>::New();
     typename Volume<T>::RegionType region(start, dim);
     vol->SetRegions(region);
+    vol->SetSpacing(spacing);
+    vol->SetOrigin(origin);
     vol->Allocate();
     
     return vol;

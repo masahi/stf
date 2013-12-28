@@ -235,7 +235,6 @@ int main(int argc, char *argv[])
     const auto end = high_resolution_clock::now();
     const duration<double> t = end - start;
     std::cout << t.count() << std::endl;
-    // return 0;
 
     const auto start2 = high_resolution_clock::now();
     DataSet data(mr_data.size());
@@ -247,10 +246,14 @@ int main(int argc, char *argv[])
         std::tie(width, height, depth) = getVolumeDimension<short>(mr_data[i][0]);
         std::vector<double> prob(n_classes);
 
+        auto spacing = gts[i]->GetSpacing();
+        auto origin = gts[i]->GetOrigin();
+
+        std::cout << origin << std::endl;
         std::vector<VolumePtr<double>> gmm_volumes(n_classes);
         for (int j = 0; j < n_classes; ++j)
         {
-            gmm_volumes[j] = createVolume<double>(width, height, depth);
+            gmm_volumes[j] = createVolume<double>(width, height, depth, spacing, origin);
         }
 
         for (int z = 0; z < depth; ++z)
@@ -360,12 +363,14 @@ int main(int argc, char *argv[])
 
         int width, height, depth;
         std::tie(width, height, depth) = getVolumeDimension<short>(gt);
+        auto spacing = gt->GetSpacing();
+        auto origin = gt->GetOrigin();
 
         std::vector<double> prob(n_classes);
         std::vector<VolumePtr<double>> gmm_volumes(n_classes);
         for (int j = 0; j < n_classes; ++j)
         {
-            gmm_volumes[j] = createVolume<double>(width, height, depth);
+            gmm_volumes[j] = createVolume<double>(width, height, depth, spacing, origin);
         }
 
         VolumeVector<short> volumes;
@@ -425,7 +430,7 @@ int main(int argc, char *argv[])
         }
 
         const Instance ins = std::make_tuple(volumes, gmm_volumes, mask);
-        VolumePtr<unsigned char> prediction = createVolume<unsigned char>(width, height, depth);
+        VolumePtr<unsigned char> prediction = createVolume<unsigned char>(width, height, depth, spacing, origin);
 
         for (int z = 0; z < depth; ++z)
         {

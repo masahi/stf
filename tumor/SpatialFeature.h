@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cmath>
 #include <tuple>
+#include <limits>
 #include <util/general.h>
 #include <util.h>
 
@@ -122,8 +123,8 @@ public:
         }
         else
         {
-            double max_intensity;
-            double min_intensity;
+            double max_intensity = std::numeric_limits<double>::min();
+            double min_intensity = std::numeric_limits<double>::max();
             const double lambda_incr = 0.1;
 
             for (double lambda = 0; lambda <= 1.0; lambda += lambda_incr)
