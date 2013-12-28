@@ -52,7 +52,7 @@ bool outOfBounds(int width, int height, int depth, Index<T> index)
     const int y = index[1];
     const int z = index[2];
 
-    return (0 <= x && x < width && 0 <= y && y < height && 0 <= z && z < depth);
+    return !(0 <= x && x < width && 0 <= y && y < height && 0 <= z && z < depth);
     
 }
 #endif

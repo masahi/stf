@@ -143,14 +143,14 @@ int addInstance(const fs::path& instance_path, std::vector<VolumeVector<short>>&
     return n_voxels;
 }
 
-int addTrainingInstance(std::vector<DataInstance>& training_data, std::vector<int> labels, const Instance& instance, const VolumePtr<short>& gt)
+int addTrainingInstance(std::vector<DataInstance>& training_data, std::vector<int>& labels, const Instance& instance, const VolumePtr<short>& gt)
 {
     const VolumePtr<unsigned char>& mask = std::get<2>(instance);
 
     int width, height, depth;
     std::tie(width, height, depth) = getVolumeDimension<unsigned char>(mask);
 
-    std::array<double, 5> rate = { 0.01, 0.6, 0.1, 1.0, 0.3 };
+    std::array<double, 5> rate = { 0.05, 1.0, 1.0, 1.0, 1.0 };
     int n_voxels = 0;
     for (int z = 0; z < depth; ++z)
     {
@@ -182,7 +182,7 @@ int main(int argc, char *argv[])
     po::options_description opt("option");
     opt.add_options()
         ("data_dir", po::value<string>()->default_value("HG"))
-        ("max_box_size", po::value<int>()->default_value(45))
+        ("max_box_size", po::value<int>()->default_value(11))
         ;
 
     po::variables_map vm;
@@ -201,7 +201,7 @@ int main(int argc, char *argv[])
     int total_voxel = 0;
 
     int c = 0;
-    const int n_training_instances = 12;
+    const int n_training_instances = 15;
     for (; dir_iter != fs::directory_iterator(); ++dir_iter, ++c)
     {
         if (c == n_training_instances) break;
@@ -259,8 +259,6 @@ int main(int argc, char *argv[])
             {
                 for (int x = 0; x < width; ++x)
                 {
-                    const int ix = x + y * width + z * width * height;
-                    //          std::cout << ix << std::endl;
                     Index<double> index;
                     index[0] = x;
                     index[1] = y;
@@ -307,9 +305,9 @@ int main(int argc, char *argv[])
     }
 
     const int n_trees = 8;
-    const int n_features = 400;
-    const int n_thres = 20;
-    const int max_depth = 1;
+    const int n_features = 100;
+    const int n_thres = 10;
+    const int max_depth = 10;
     RandomForest<SpatialFeature> forest(n_classes, n_trees, n_features, n_thres, max_depth);
 
     const int max_box_size = vm["max_box_size"].as<int>();
@@ -323,11 +321,16 @@ int main(int argc, char *argv[])
         weights[i] = 1.0 / class_counts[i];
     }
 
+    for(int c: class_counts) std::cout << c << std::endl;
+    for(double w: weights) std::cout << w << std::endl;
+    std::cout << n_data << std::endl;
+
     const double sample_rate = 0.25;
     forest.train(training_data, labels, factory, weights, sample_rate);
 
-    /* TESTING */
+    std::cout << "Done Training.\n";
 
+    /* TESTING */
     std::vector<int> n_tests_per_class(n_classes, 0);
     std::vector<int> n_corrects_per_class(n_classes, 0);
 

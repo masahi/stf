@@ -202,10 +202,11 @@ private:
             const int n_data = to - from;
             const int depth = info.depth + 1;
 
-            std::vector<double> response(n_data);
+            std::cout << depth << std::endl;
+            std::vector<double> response(n_data), best_response(n_data);
             double best_gain = -1;
-            FeatureType best_feature(factory());
             double best_thres;
+            int best_feature;
 
             int n_threshold;
             if (n_thres_per_feat == -1 || n_data < n_thres_per_feat)
@@ -279,9 +280,9 @@ private:
                 if (gain > best_gain)
                 {
                     best_gain = gain;
-                    best_feature = f;
+                    best_feature = i;
                     best_thres = threshold[0];
-
+                    best_response = response;
                 }
 
                 for (int t = 1; t < n_threshold; ++t)
@@ -294,9 +295,9 @@ private:
                     if (gain > best_gain)
                     {
                         best_gain = gain;
-                        best_feature = f;
+                        best_feature = i;
                         best_thres = threshold[t];
-
+                        best_response = response;
                     }
                 }
             }
@@ -319,12 +320,7 @@ private:
                 continue;
             }
 
-            for (int i = from; i < to; ++i)
-            {
-                response[i - from] = best_feature(X[indices[i]]);
-            }
-
-            SplitNode<FeatureType>* split(new SplitNode<FeatureType>(node_index, depth, best_feature, best_thres));
+            SplitNode<FeatureType>* split(new SplitNode<FeatureType>(node_index, depth, candidate_features[best_feature], best_thres));
             nodes.push_back(NodePtr(split));
             ++n_nodes;
 
@@ -344,7 +340,7 @@ private:
                 }
             }
 
-            int thres_index = partitionByResponse(indices, from, to, response, best_thres);
+            int thres_index = partitionByResponse(indices, from, to, best_response, best_thres);
 
             que.push(NodeBuildInfo(from, thres_index, node_index, true, depth));
             que.push(NodeBuildInfo(thres_index, to, node_index, false, depth));
