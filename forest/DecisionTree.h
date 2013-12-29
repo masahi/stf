@@ -202,7 +202,6 @@ private:
             const int n_data = to - from;
             const int depth = info.depth + 1;
 
-            std::cout << depth << std::endl;
             std::vector<double> response(n_data), best_response(n_data);
             double best_gain = -1;
             double best_thres;

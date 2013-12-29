@@ -249,7 +249,6 @@ int main(int argc, char *argv[])
         auto spacing = gts[i]->GetSpacing();
         auto origin = gts[i]->GetOrigin();
 
-        std::cout << origin << std::endl;
         std::vector<VolumePtr<double>> gmm_volumes(n_classes);
         for (int j = 0; j < n_classes; ++j)
         {
@@ -307,10 +306,10 @@ int main(int argc, char *argv[])
         n_data += addTrainingInstance(training_data, labels, data[i], gts[i]);
     }
 
-    const int n_trees = 8;
-    const int n_features = 100;
+    const int n_trees = 40;
+    const int n_features = 400;
     const int n_thres = 10;
-    const int max_depth = 10;
+    const int max_depth = 15;
     RandomForest<SpatialFeature> forest(n_classes, n_trees, n_features, n_thres, max_depth);
 
     const int max_box_size = vm["max_box_size"].as<int>();
@@ -328,7 +327,7 @@ int main(int argc, char *argv[])
     for(double w: weights) std::cout << w << std::endl;
     std::cout << n_data << std::endl;
 
-    const double sample_rate = 0.25;
+    const double sample_rate = 1;
     forest.train(training_data, labels, factory, weights, sample_rate);
 
     std::cout << "Done Training.\n";
@@ -341,6 +340,7 @@ int main(int argc, char *argv[])
     {
         const fs::path instance_path(dir_iter->path());
 
+        std::cout << instance_path.string() << std::endl;
         const fs::path flair_path(instance_path / fs::path("VSD.Brain.XX.O.MR_Flair"));
         const fs::path t1_path(instance_path / fs::path("VSD.Brain.XX.O.MR_T1"));
         const fs::path t1c_path(instance_path / fs::path("VSD.Brain.XX.O.MR_T1c"));
@@ -393,6 +393,8 @@ int main(int argc, char *argv[])
 
         VolumePtr<unsigned char> mask = thres->GetOutput();
 
+        VolumePtr<unsigned char> prediction_gmm = createVolume<unsigned char>(width, height, depth, spacing, origin);
+
         for (int z = 0; z < depth; ++z)
         {
             for (int y = 0; y < height; ++y)
@@ -403,7 +405,11 @@ int main(int argc, char *argv[])
                     index[0] = x;
                     index[1] = y;
                     index[2] = z;
-                    if (mask->GetPixel(index) == 0) continue;
+                    if (mask->GetPixel(index) == 0)
+                    {
+                        prediction_gmm->SetPixel(index, 0);
+                        continue;
+                    }
                     const short label = gt->GetPixel(index);
                     assert(label <= 4);
 
@@ -413,13 +419,22 @@ int main(int argc, char *argv[])
                         X(c) = static_cast<double>(volumes[c]->GetPixel(index));
                     }
 
+                    double mx = -1;
+                    int map_sol;
                     double normalizer = 0;
                     for (int j = 0; j < n_classes; ++j)
                     {
                         const double p = gmms[j].evaluate(X) * prior[j];
                         prob[j] = p;
                         normalizer += p;
+                        if(p > mx)
+                        {
+                            map_sol = j;
+                            mx = p;
+                        }
                     }
+
+                    prediction_gmm->SetPixel(index, map_sol);
 
                     for (int j = 0; j < n_classes; ++j)
                     {
@@ -460,18 +475,27 @@ int main(int argc, char *argv[])
         }
 
         const string filename = "seg.mha";
+        const string filename2 = "seg_gmm.mha";
         const fs::path save_path = fs::absolute(instance_path) / fs::path(filename);
+        const fs::path save_path2 = fs::absolute(instance_path) / fs::path(filename2);
         typedef itk::ImageFileWriter<Volume<unsigned char>> Writer;
         Writer::Pointer writer = Writer::New();
         writer->SetInput(prediction);
         writer->SetFileName(save_path.string());
         writer->Update();
+        writer->SetInput(prediction_gmm);
+        writer->SetFileName(save_path2.string());
+        writer->Update();
     }
 
     std::cout << "******** Accuracy **********\n";
+    const double n_corrects = std::accumulate(n_corrects_per_class.begin(), n_corrects_per_class.end(),0);
+    const double n_tests = std::accumulate(n_tests_per_class.begin(), n_tests_per_class.end(),0);
+    std::cout << "Overall: " << static_cast<double>(n_corrects) / n_tests << std::endl;
+
     for (int i = 0; i < n_classes; ++i)
     {
-        std::cout << static_cast<double>(n_corrects_per_class[i]) / n_tests_per_class[i];
+        std::cout << static_cast<double>(n_corrects_per_class[i]) / n_tests_per_class[i] << std::endl;
     }
     return 0;
 }
