@@ -237,6 +237,7 @@ int main(int argc, char *argv[])
     std::cout << t.count() << std::endl;
 
     const auto start2 = high_resolution_clock::now();
+
     DataSet data(mr_data.size());
 
 #pragma omp parallel for
@@ -328,165 +329,176 @@ int main(int argc, char *argv[])
     std::cout << n_data << std::endl;
 
     const double sample_rate = 1;
-    forest.train(training_data, labels, factory, weights, sample_rate);
 
-    std::cout << "Done Training.\n";
+    const double training_time = timeit([&]()
+    {
+        forest.train(training_data, labels, factory, weights, sample_rate);
+    });
+
+    std::cout << "Done Training in " << training_time << std::endl;
 
     /* TESTING */
+
     std::vector<int> n_tests_per_class(n_classes, 0);
     std::vector<int> n_corrects_per_class(n_classes, 0);
 
-    for (; dir_iter != fs::directory_iterator(); ++dir_iter)
+    const double testing_time = timeit([&]()
     {
-        const fs::path instance_path(dir_iter->path());
 
-        std::cout << instance_path.string() << std::endl;
-        const fs::path flair_path(instance_path / fs::path("VSD.Brain.XX.O.MR_Flair"));
-        const fs::path t1_path(instance_path / fs::path("VSD.Brain.XX.O.MR_T1"));
-        const fs::path t1c_path(instance_path / fs::path("VSD.Brain.XX.O.MR_T1c"));
-        const fs::path t2_path(instance_path / fs::path("VSD.Brain.XX.O.MR_T2"));
-        const fs::path gt_path(instance_path / fs::path("VSD.Brain_3more.XX.XX.OT"));
-
-        vector<fs::path> volume_paths =
+        for (; dir_iter != fs::directory_iterator(); ++dir_iter)
         {
-            flair_path,
-            t1_path,
-            t1c_path,
-            t2_path
-        };
+            const fs::path instance_path(dir_iter->path());
 
-        typedef itk::ImageFileReader<Volume<short>> ImageReader;
-        ImageReader::Pointer gt_reader = ImageReader::New();
-        gt_reader->SetFileName(findMHA(gt_path).string());
-        gt_reader->Update();
-        VolumePtr<short> gt = gt_reader->GetOutput();
+            std::cout << instance_path.string() << std::endl;
+            const fs::path flair_path(instance_path / fs::path("VSD.Brain.XX.O.MR_Flair"));
+            const fs::path t1_path(instance_path / fs::path("VSD.Brain.XX.O.MR_T1"));
+            const fs::path t1c_path(instance_path / fs::path("VSD.Brain.XX.O.MR_T1c"));
+            const fs::path t2_path(instance_path / fs::path("VSD.Brain.XX.O.MR_T2"));
+            const fs::path gt_path(instance_path / fs::path("VSD.Brain_3more.XX.XX.OT"));
 
-        int width, height, depth;
-        std::tie(width, height, depth) = getVolumeDimension<short>(gt);
-        auto spacing = gt->GetSpacing();
-        auto origin = gt->GetOrigin();
-
-        std::vector<double> prob(n_classes);
-        std::vector<VolumePtr<double>> gmm_volumes(n_classes);
-        for (int j = 0; j < n_classes; ++j)
-        {
-            gmm_volumes[j] = createVolume<double>(width, height, depth, spacing, origin);
-        }
-
-        VolumeVector<short> volumes;
-        for (const fs::path& p : volume_paths)
-        {
-            ImageReader::Pointer reader = ImageReader::New();
-            const fs::path mha_path = findMHA(p);
-            reader->SetFileName(mha_path.string());
-            reader->Update();
-            volumes.push_back(reader->GetOutput());
-        }
-
-        typedef itk::BinaryThresholdImageFilter<Volume<short>, Volume<unsigned char>> ThresholdFilter;
-        ThresholdFilter::Pointer thres = ThresholdFilter::New();
-        thres->SetInput(volumes[0]);
-        thres->SetLowerThreshold(1);
-        thres->SetInsideValue(1);
-        thres->SetOutsideValue(0);
-        thres->Update();
-
-        VolumePtr<unsigned char> mask = thres->GetOutput();
-
-        VolumePtr<unsigned char> prediction_gmm = createVolume<unsigned char>(width, height, depth, spacing, origin);
-
-        for (int z = 0; z < depth; ++z)
-        {
-            for (int y = 0; y < height; ++y)
+            vector<fs::path> volume_paths =
             {
-                for (int x = 0; x < width; ++x)
+                flair_path,
+                t1_path,
+                t1c_path,
+                t2_path
+            };
+
+            typedef itk::ImageFileReader<Volume<short>> ImageReader;
+            ImageReader::Pointer gt_reader = ImageReader::New();
+            gt_reader->SetFileName(findMHA(gt_path).string());
+            gt_reader->Update();
+            VolumePtr<short> gt = gt_reader->GetOutput();
+
+            int width, height, depth;
+            std::tie(width, height, depth) = getVolumeDimension<short>(gt);
+            auto spacing = gt->GetSpacing();
+            auto origin = gt->GetOrigin();
+
+            std::vector<double> prob(n_classes);
+            std::vector<VolumePtr<double>> gmm_volumes(n_classes);
+            for (int j = 0; j < n_classes; ++j)
+            {
+                gmm_volumes[j] = createVolume<double>(width, height, depth, spacing, origin);
+            }
+
+            VolumeVector<short> volumes;
+            for (const fs::path& p : volume_paths)
+            {
+                ImageReader::Pointer reader = ImageReader::New();
+                const fs::path mha_path = findMHA(p);
+                reader->SetFileName(mha_path.string());
+                reader->Update();
+                volumes.push_back(reader->GetOutput());
+            }
+
+            typedef itk::BinaryThresholdImageFilter<Volume<short>, Volume<unsigned char>> ThresholdFilter;
+            ThresholdFilter::Pointer thres = ThresholdFilter::New();
+            thres->SetInput(volumes[0]);
+            thres->SetLowerThreshold(1);
+            thres->SetInsideValue(1);
+            thres->SetOutsideValue(0);
+            thres->Update();
+
+            VolumePtr<unsigned char> mask = thres->GetOutput();
+
+            VolumePtr<unsigned char> prediction_gmm = createVolume<unsigned char>(width, height, depth, spacing, origin);
+
+            for (int z = 0; z < depth; ++z)
+            {
+                for (int y = 0; y < height; ++y)
                 {
-                    Index<short> index;
-                    index[0] = x;
-                    index[1] = y;
-                    index[2] = z;
-                    if (mask->GetPixel(index) == 0)
+                    for (int x = 0; x < width; ++x)
                     {
-                        prediction_gmm->SetPixel(index, 0);
-                        continue;
-                    }
-                    const short label = gt->GetPixel(index);
-                    assert(label <= 4);
-
-                    Vector<double> X(n_mr_channels);
-                    for (int c = 0; c < n_mr_channels; ++c)
-                    {
-                        X(c) = static_cast<double>(volumes[c]->GetPixel(index));
-                    }
-
-                    double mx = -1;
-                    int map_sol;
-                    double normalizer = 0;
-                    for (int j = 0; j < n_classes; ++j)
-                    {
-                        const double p = gmms[j].evaluate(X) * prior[j];
-                        prob[j] = p;
-                        normalizer += p;
-                        if(p > mx)
+                        Index<short> index;
+                        index[0] = x;
+                        index[1] = y;
+                        index[2] = z;
+                        if (mask->GetPixel(index) == 0)
                         {
-                            map_sol = j;
-                            mx = p;
+                            prediction_gmm->SetPixel(index, 0);
+                            continue;
+                        }
+                        const short label = gt->GetPixel(index);
+                        assert(label <= 4);
+
+                        Vector<double> X(n_mr_channels);
+                        for (int c = 0; c < n_mr_channels; ++c)
+                        {
+                            X(c) = static_cast<double>(volumes[c]->GetPixel(index));
+                        }
+
+                        double mx = -1;
+                        int map_sol;
+                        double normalizer = 0;
+                        for (int j = 0; j < n_classes; ++j)
+                        {
+                            const double p = gmms[j].evaluate(X) * prior[j];
+                            prob[j] = p;
+                            normalizer += p;
+                            if (p > mx)
+                            {
+                                map_sol = j;
+                                mx = p;
+                            }
+                        }
+
+                        prediction_gmm->SetPixel(index, map_sol);
+
+                        for (int j = 0; j < n_classes; ++j)
+                        {
+                            gmm_volumes[j]->SetPixel(index, prob[j] / normalizer);
                         }
                     }
-
-                    prediction_gmm->SetPixel(index, map_sol);
-
-                    for (int j = 0; j < n_classes; ++j)
-                    {
-                        gmm_volumes[j]->SetPixel(index, prob[j] / normalizer);
-                    }
                 }
             }
-        }
 
-        const Instance ins = std::make_tuple(volumes, gmm_volumes, mask);
-        VolumePtr<unsigned char> prediction = createVolume<unsigned char>(width, height, depth, spacing, origin);
+            const Instance ins = std::make_tuple(volumes, gmm_volumes, mask);
+            VolumePtr<unsigned char> prediction = createVolume<unsigned char>(width, height, depth, spacing, origin);
 
-        for (int z = 0; z < depth; ++z)
-        {
-            for (int y = 0; y < height; ++y)
+            for (int z = 0; z < depth; ++z)
             {
-                for (int x = 0; x < width; ++x)
+                for (int y = 0; y < height; ++y)
                 {
-                    Index<short> index;
-                    index[0] = x;
-                    index[1] = y;
-                    index[2] = z;
-                    if (mask->GetPixel(index) == 0)
+                    for (int x = 0; x < width; ++x)
                     {
-                        prediction->SetPixel(index, 0);
-                        continue;
+                        Index<short> index;
+                        index[0] = x;
+                        index[1] = y;
+                        index[2] = z;
+                        if (mask->GetPixel(index) == 0)
+                        {
+                            prediction->SetPixel(index, 0);
+                            continue;
+                        }
+
+                        DataInstance data(ins, x, y, z);
+                        const int pred = forest.predict(data);
+                        prediction->SetPixel(index, pred);
+
+                        const int true_label = gt->GetPixel(index);
+                        ++n_tests_per_class[true_label];
+                        n_corrects_per_class[true_label] += (pred == true_label ? 1 : 0);
                     }
-
-                    DataInstance data(ins, x, y, z);
-                    const int pred = forest.predict(data);
-                    prediction->SetPixel(index, pred);
-
-                    const int true_label = gt->GetPixel(index);
-                    ++n_tests_per_class[true_label];
-                    n_corrects_per_class[true_label] += (pred == true_label ? 1 : 0);
                 }
             }
-        }
 
-        const string filename = "seg.mha";
-        const string filename2 = "seg_gmm.mha";
-        const fs::path save_path = fs::absolute(instance_path) / fs::path(filename);
-        const fs::path save_path2 = fs::absolute(instance_path) / fs::path(filename2);
-        typedef itk::ImageFileWriter<Volume<unsigned char>> Writer;
-        Writer::Pointer writer = Writer::New();
-        writer->SetInput(prediction);
-        writer->SetFileName(save_path.string());
-        writer->Update();
-        writer->SetInput(prediction_gmm);
-        writer->SetFileName(save_path2.string());
-        writer->Update();
-    }
+            const string filename = "seg.mha";
+            const string filename2 = "seg_gmm.mha";
+            const fs::path save_path = fs::absolute(instance_path) / fs::path(filename);
+            const fs::path save_path2 = fs::absolute(instance_path) / fs::path(filename2);
+            typedef itk::ImageFileWriter<Volume<unsigned char>> Writer;
+            Writer::Pointer writer = Writer::New();
+            writer->SetInput(prediction);
+            writer->SetFileName(save_path.string());
+            writer->Update();
+            writer->SetInput(prediction_gmm);
+            writer->SetFileName(save_path2.string());
+            writer->Update();
+        }
+    });
+
+    std::cout << "Done Testing in " << testing_time << std::endl;
 
     std::cout << "******** Accuracy **********\n";
     const double n_corrects = std::accumulate(n_corrects_per_class.begin(), n_corrects_per_class.end(),0);

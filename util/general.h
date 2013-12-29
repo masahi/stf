@@ -10,9 +10,21 @@
 #include <tuple>
 #include <map>
 #include <util/eigen.h>
+#include <chrono>
+
 /*
   TODO: Needs more work here
 */
+
+template <typename Func>
+double timeit(Func f)
+{
+    const auto start = std::chrono::system_clock::now();
+    f();
+    const auto end = std::chrono::system_clock::now();
+    const auto t = end - start;
+    return std::chrono::duration_cast<std::chrono::milliseconds>(t).count();
+}
 
 std::string replaceString(const std::string& src, const std::string& od, const std::string& nw)
 {
