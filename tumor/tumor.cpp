@@ -24,7 +24,7 @@ using namespace boost::chrono;
 namespace fs = boost::filesystem;
 namespace po = boost::program_options;
 
-typedef std::tuple<VolumeVector<short>, VolumeVector<double>, VolumePtr<unsigned char>> Instance;
+typedef std::tuple<VolumeVector<short>, VolumeVector<double>, VolumePtr<unsigned char>, VolumeVector<short>, VolumeVector<double>, VolumePtr<unsigned int>> Instance;
 typedef std::vector<Instance> DataSet;
 
 struct DataInstance
@@ -256,6 +256,23 @@ int main(int argc, char *argv[])
             gmm_volumes[j] = createVolume<double>(width, height, depth, spacing, origin);
         }
 
+        VolumeVector<short> integral_mr_volumes(n_mr_channels);
+        for (int j = 0; j < n_mr_channels; ++j)
+        {
+            integral_mr_volumes[j] = createVolume<short>(width, height, depth, spacing, origin);
+            integral_mr_volumes[j]->FillBuffer(0);
+        }
+
+        VolumeVector<double> integral_gmm_volumes(n_classes);
+        for (int j = 0; j < n_classes; ++j)
+        {
+            integral_gmm_volumes[j] = createVolume<double>(width, height, depth, spacing, origin);
+            integral_gmm_volumes[j]->FillBuffer(0);
+        }
+
+        VolumePtr<unsigned int> integral_n_voxels = createVolume<unsigned int>(width, height, depth, spacing, origin);
+        integral_n_voxels->FillBuffer(0);
+
         for (int z = 0; z < depth; ++z)
         {
             for (int y = 0; y < height; ++y)
@@ -269,10 +286,16 @@ int main(int argc, char *argv[])
 
                     if (masks[i]->GetPixel(index) == 0) continue;
 
+                    unsigned int cum_sum_n_voxels = 1;
+                    std::vector<short> cum_sum_mr(n_mr_channels, 0);
+                    std::vector<double> cum_sum_gmm(n_classes, 0);
+
                     Vector<double> X(n_mr_channels);
                     for (int c = 0; c < n_mr_channels; ++c)
                     {
-                        X(c) = static_cast<double>(mr_data[i][c]->GetPixel(index));
+                        const short v = mr_data[i][c]->GetPixel(index);
+                        X(c) = static_cast<double>(v);
+                        cum_sum_mr[c] = v;
                     }
 
                     double normalizer = 0;
@@ -285,14 +308,72 @@ int main(int argc, char *argv[])
 
                     for (int j = 0; j < n_classes; ++j)
                     {
-                        gmm_volumes[j]->SetPixel(index, prob[j] / normalizer);
+                        const double v = prob[j] / normalizer;
+                        gmm_volumes[j]->SetPixel(index, v);
+                        cum_sum_gmm[j] = v;
                     }
+
+#define ACCUMULATE(ox, oy, oz, op) \
+    itk::Offset<3> offset; \
+    offset[0] = ox; \
+    offset[1] = oy; \
+    offset[2] = oz; \
+    cum_sum_n_voxels op= integral_n_voxels->GetPixel(index + offset); \
+                    for (int c = 0; c < n_mr_channels; ++c)\
+                    {\
+                    cum_sum_mr[c] op= integral_mr_volumes[c]->GetPixel(index + offset); \
+                    }\
+                    for (int c = 0; c < n_classes; ++c)\
+                    {\
+                    cum_sum_gmm[c] op= integral_gmm_volumes[c]->GetPixel(index + offset); \
+                    }
+
+                    if (x > 0)
+                    {
+                        ACCUMULATE(-1, 0, 0, +)
+                    }
+                    if (y > 0)
+                    {
+                        ACCUMULATE(0, -1, 0, +)
+                    }
+                    if (z > 0)
+                    {
+                        ACCUMULATE(0, 0, -1, +)
+                    }
+                    if (x > 0 && y > 0)
+                    {
+                        ACCUMULATE(-1, -1, 0, -)
+                    }
+                    if (y > 0 && z > 0)
+                    {
+                        ACCUMULATE(0, -1, -1, -)
+                    }
+                    if (x > 0 && z > 0)
+                    {
+                        ACCUMULATE(-1, 0, -1, -)
+                    }
+                    if (x > 0 && y > 0 && z > 0)
+                    {
+                        ACCUMULATE(-1, -1, -1, +)
+                    }
+
+                    for (int c = 0; c < n_mr_channels; ++c)
+                    {
+                        integral_mr_volumes[c]->SetPixel(index, cum_sum_mr[c]);
+                    }
+
+                    for (int c = 0; c < n_classes; ++c)
+                    {
+                        integral_gmm_volumes[c]->SetPixel(index, cum_sum_gmm[c]);
+                    }
+
+                    integral_n_voxels->SetPixel(index, cum_sum_n_voxels);
 
                 }
             }
         }
 
-        data[i] = std::make_tuple(mr_data[i], gmm_volumes, masks[i]);
+        data[i] = std::make_tuple(mr_data[i], gmm_volumes, masks[i], integral_mr_volumes, integral_gmm_volumes, integral_n_voxels);
     }
 
     const auto end2 = high_resolution_clock::now();
@@ -324,8 +405,8 @@ int main(int argc, char *argv[])
         weights[i] = 1.0 / class_counts[i];
     }
 
-    for(int c: class_counts) std::cout << c << std::endl;
-    for(double w: weights) std::cout << w << std::endl;
+    for (int c : class_counts) std::cout << c << std::endl;
+    for (double w : weights) std::cout << w << std::endl;
     std::cout << n_data << std::endl;
 
     const double sample_rate = 1;
@@ -402,6 +483,23 @@ int main(int argc, char *argv[])
 
             VolumePtr<unsigned char> mask = thres->GetOutput();
 
+            VolumeVector<short> integral_mr_volumes(n_mr_channels);
+            for (int j = 0; j < n_mr_channels; ++j)
+            {
+                integral_mr_volumes[j] = createVolume<short>(width, height, depth, spacing, origin);
+                integral_mr_volumes[j]->FillBuffer(0);
+            }
+
+            VolumeVector<double> integral_gmm_volumes(n_classes);
+            for (int j = 0; j < n_classes; ++j)
+            {
+                integral_gmm_volumes[j] = createVolume<double>(width, height, depth, spacing, origin);
+                integral_gmm_volumes[j]->FillBuffer(0);
+            }
+
+            VolumePtr<unsigned int> integral_n_voxels = createVolume<unsigned int>(width, height, depth, spacing, origin);
+            integral_n_voxels->FillBuffer(0);
+
             VolumePtr<unsigned char> prediction_gmm = createVolume<unsigned char>(width, height, depth, spacing, origin);
 
             for (int z = 0; z < depth; ++z)
@@ -453,7 +551,7 @@ int main(int argc, char *argv[])
                 }
             }
 
-            const Instance ins = std::make_tuple(volumes, gmm_volumes, mask);
+            const Instance ins = std::make_tuple(volumes, gmm_volumes, mask, integral_mr_volumes, integral_gmm_volumes, integral_n_voxels);
             VolumePtr<unsigned char> prediction = createVolume<unsigned char>(width, height, depth, spacing, origin);
 
             for (int z = 0; z < depth; ++z)
@@ -501,8 +599,8 @@ int main(int argc, char *argv[])
     std::cout << "Done Testing in " << testing_time << std::endl;
 
     std::cout << "******** Accuracy **********\n";
-    const double n_corrects = std::accumulate(n_corrects_per_class.begin(), n_corrects_per_class.end(),0);
-    const double n_tests = std::accumulate(n_tests_per_class.begin(), n_tests_per_class.end(),0);
+    const double n_corrects = std::accumulate(n_corrects_per_class.begin(), n_corrects_per_class.end(), 0);
+    const double n_tests = std::accumulate(n_tests_per_class.begin(), n_tests_per_class.end(), 0);
     std::cout << "Overall: " << static_cast<double>(n_corrects) / n_tests << std::endl;
 
     for (int i = 0; i < n_classes; ++i)

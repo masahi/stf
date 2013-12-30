@@ -17,6 +17,45 @@ template <typename T>
 using VolumeVector = std::vector<VolumePtr<T>>;
 
 template <typename T>
+T computeIntegral(const VolumePtr<T>& vol, const itk::Index<3>& index1, const itk::Index<3>& index2)
+{
+    T integral = vol->GetPixel(index2) - vol->GetPixel(index1);
+    itk::Index<3> index;
+
+    index[0] = index2[0];
+    index[1] = index2[1];
+    index[2] = index1[2];
+    integral -= vol->GetPixel(index);
+
+    index[0] = index2[0];
+    index[1] = index1[1];
+    index[2] = index2[2];
+    integral -= vol->GetPixel(index);
+    
+    index[0] = index1[0];
+    index[1] = index2[1];
+    index[2] = index2[2];
+    integral -= vol->GetPixel(index);
+    
+    index[0] = index1[0];
+    index[1] = index1[1];
+    index[2] = index2[2];
+    integral += vol->GetPixel(index);
+
+    index[0] = index1[0];
+    index[1] = index2[1];
+    index[2] = index1[2];
+    integral += vol->GetPixel(index);
+
+    index[0] = index2[0];
+    index[1] = index1[1];
+    index[2] = index1[2];
+    integral += vol->GetPixel(index);
+
+    return integral;
+}
+
+template <typename T>
 VolumePtr<T> createVolume(int width, int height, int depth, const itk::Vector<double, 3>& spacing, const itk::Point<double, 3>& origin)
 {
     itk::Index<3> start;
