@@ -27,18 +27,23 @@ public:
     {
     }
 
-    template <typename T>
+    template <typename T,
+              typename FeatureFactory>
     void train(const Matrix<T>& X,
         const Vector<int>& y,
-        const std::function<FeatureType ()>& factory)
+        const FeatureFactory& factory,
+        const std::vector<double>& class_weight,
+        double sample_rate = 1)
     {
-        train(EigenMatrixAdapter<T>(X), EigenVectorAdapter<int>(y), factory);
+        train(EigenMatrixAdapter<T>(X), EigenVectorAdapter<int>(y), factory, class_weight, sample_rate);
     }
 
-    template <typename FeatureContainer, typename LabelContainer>
+    template <typename FeatureContainer,
+              typename LabelContainer,
+              typename FeatureFactory>
     void train(const FeatureContainer& X,
         const LabelContainer& y,
-        const std::function<FeatureType ()>& factory,
+        const FeatureFactory& factory,
         const std::vector<double>& class_weights,
         double sample_rate = 1)
     {
@@ -48,6 +53,7 @@ public:
             n_trees,
             [&](int i)
         {
+            std::cout << i << std::endl;
             std::vector<int> indices = randomSamples(X.size(), data_per_tree);
             trees[i].train(X, y, indices, factory,class_weights);
         }

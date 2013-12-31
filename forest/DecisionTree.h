@@ -134,11 +134,13 @@ public:
 
     }
 
-    template <typename FeatureContainer, typename LabelContainer>
+    template <typename FeatureContainer,
+              typename LabelContainer,
+              typename FeatureFactory>
     void train(const FeatureContainer& X,
         const LabelContainer& y,
         std::vector<int>& indices,
-        const std::function<FeatureType()>& factory,
+        const FeatureFactory& factory,
         const std::vector<double>& class_weights)
     {
         buildTree(X, y, indices, factory, class_weights);
